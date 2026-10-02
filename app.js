@@ -1,7 +1,11 @@
 (function(){
 "use strict";
 var KM = window.KM;
+var KMDB = window.KMDB;
 var esc = KM.esc;
+
+/* STUB TEMPORÁRIO (Task 6) — substituído pela implementação real na Task 7 */
+async function bootstrapData(){}
 
 /* ======================= ICONS ======================= */
 function icon(name, size){
@@ -394,9 +398,12 @@ function renderSidebar(){
   }).join('');
   document.getElementById('navFooterLinks').innerHTML = NAV_AFTER_AREAS.map(itemHTML).join('');
 
-  var sel = document.getElementById('currentUserSelect');
-  sel.innerHTML = USERS.map(function(u){ return '<option value="'+u.id+'"'+(u.id===state.currentUserId?' selected':'')+'>'+u.name+(u.nickname?' ('+u.nickname+')':'')+'</option>'; }).join('');
-  document.getElementById('currentUserAvatar').textContent = initialsOf(state.currentUserId);
+  var footer = document.querySelector('.sidebar-footer .user-switch');
+  if(footer){
+    footer.innerHTML = '<div class="avatar" id="currentUserAvatar">'+initialsOf(state.currentUserId)+'</div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;">'+esc(userLabel(state.currentUserId))+'</div></div>' +
+      '<button class="btn btn-ghost btn-sm" id="logoutBtn">Sair</button>';
+  }
 }
 
 function pageTitleFor(r){
@@ -864,6 +871,10 @@ function renderAll(){
 }
 
 document.addEventListener('click', function(e){
+  if(e.target.closest('#loginBtn')){ doLogin(); return; }
+  if(e.target.closest('#forgotBtn')){ doForgot(); return; }
+  if(e.target.closest('#logoutBtn')){ KMDB.signOut().then(function(){ location.hash=''; showLogin(); }); return; }
+
   var navBtn = e.target.closest('[data-nav]');
   if(navBtn){ navigate(navBtn.getAttribute('data-nav')); return; }
 
@@ -943,7 +954,6 @@ document.addEventListener('change', function(e){
   }
   if(e.target.matches('[data-toggle-check]')){ toggleChecklist(state.drawerTaskId, e.target.getAttribute('data-toggle-check')); renderDrawer(); return; }
   if(e.target.matches('[data-toggle-subtask]')){ toggleSubtask(state.drawerTaskId, e.target.getAttribute('data-toggle-subtask')); renderDrawer(); return; }
-  if(e.target.id==='currentUserSelect'){ state.currentUserId = e.target.value; renderAll(); return; }
 });
 
 /* drag & drop */
@@ -978,10 +988,50 @@ function syncSidebar(){
   document.getElementById('sidebarOverlay').classList.toggle('show', state.sidebarOpen);
 }
 
-/* ======================= INIT ======================= */
+/* ======================= INIT / AUTH ======================= */
 document.getElementById('hamburgerBtn').innerHTML = icon('menu',18);
 document.getElementById('sidebarClose').innerHTML = icon('close',16);
 window.addEventListener('hashchange', onHashChange);
-if(!location.hash) location.hash = '#/dashboard';
-onHashChange();
+
+function showLogin(message){
+  document.getElementById('app').style.display='none';
+  var gate = document.getElementById('gateScreen');
+  gate.classList.add('show');
+  gate.innerHTML = '<div class="login-card"><h1>Kabelera Manager</h1><p class="sub">Entre com seu e-mail e senha.</p>' +
+    '<div class="field-row"><label>E-mail</label><input type="email" id="loginEmail" autocomplete="username"></div>' +
+    '<div class="field-row"><label>Senha</label><input type="password" id="loginPassword" autocomplete="current-password"></div>' +
+    '<button class="btn btn-primary" id="loginBtn" style="width:100%;justify-content:center;">Entrar</button>' +
+    '<div class="login-error" id="loginError">'+(message||'')+'</div>' +
+    '<button class="login-link" id="forgotBtn">Esqueci minha senha</button></div>';
+  document.getElementById('loginPassword').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+}
+async function doLogin(){
+  var email=document.getElementById('loginEmail').value.trim();
+  var pass=document.getElementById('loginPassword').value;
+  var errEl=document.getElementById('loginError');
+  errEl.textContent='';
+  try{ await KMDB.signIn(email, pass); await startApp(); }
+  catch(e){ errEl.textContent='E-mail ou senha incorretos.'; }
+}
+async function doForgot(){
+  var email=document.getElementById('loginEmail').value.trim();
+  if(!email){ document.getElementById('loginError').textContent='Digite seu e-mail primeiro.'; return; }
+  try{ await KMDB.resetPassword(email); document.getElementById('loginError').style.color='var(--text-secondary)'; document.getElementById('loginError').textContent='Enviamos um link de redefinição para seu e-mail.'; }
+  catch(e){ document.getElementById('loginError').textContent='Não foi possível enviar o e-mail.'; }
+}
+
+async function startApp(){
+  document.getElementById('gateScreen').classList.remove('show');
+  document.getElementById('app').style.display='';
+  document.getElementById('content').innerHTML = '<div class="app-loading">Carregando seus dados...</div>';
+  await bootstrapData();                 // definido na Task 7
+  if(!location.hash) location.hash = '#/dashboard';
+  onHashChange();
+}
+
+(async function init(){
+  var session = await KMDB.getSession();
+  if(session) await startApp();
+  else showLogin();
+})();
 })();
