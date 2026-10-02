@@ -151,18 +151,31 @@ function showToast(msg){
 }
 
 /* ---- mutation actions ---- */
+function snapshot(t){ return JSON.parse(JSON.stringify(t)); }
+async function persistTask(t, prevSnapshot, okMsg){
+  try{
+    var saved = await KMDB.updateTask(t.id, t);
+    Object.assign(t, saved);
+    if(okMsg) showToast(okMsg);
+  }catch(e){
+    if(prevSnapshot){ Object.assign(t, prevSnapshot); }
+    showToast('Não foi possível salvar — tente de novo.');
+    renderContent(); if(state.drawerTaskId) renderDrawer();
+  }
+}
 function moveTask(taskId, newStatus){
-  var t = taskById(taskId); if(!t) return;
-  if(t.status===newStatus) return;
+  var t = taskById(taskId); if(!t || t.status===newStatus) return;
+  var prev = snapshot(t);
   var old = t.status;
   t.status = newStatus;
-  if(isFinal(t)){ if(!t.completedAt) t.completedAt = TODAY_ISO; }
+  if(KM.isFinalStatus(area(t.areaId).flow, newStatus)){ if(!t.completedAt) t.completedAt = TODAY_ISO; }
   else { t.completedAt = null; }
   pushHistory(t,'status',old,newStatus);
+  persistTask(t, prev);
 }
 function approveTask(taskId){
-  var t=taskById(taskId); var a=area(t.areaId); var target = RETURN_RULES[a.flow] ? 'Programado' : t.status;
-  moveTask(taskId, a.flow==='creative' ? 'Programado' : t.status);
+  var t=taskById(taskId); var a=area(t.areaId);
+  moveTask(taskId, KM.nextStatusOnApprove(a.flow, t.status));
   showToast('Tarefa aprovada.');
 }
 function rejectTask(taskId){
@@ -173,48 +186,63 @@ function rejectTask(taskId){
 }
 function updateTaskField(taskId, field, value){
   var t=taskById(taskId); if(!t) return;
-  var old = t[field];
-  if(old===value) return;
+  var old = t[field]; if(old===value) return;
+  var prev = snapshot(t);
   t[field]=value;
   var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega'};
   pushHistory(t, labelMap[field]||field, field==='responsibleId'?userLabel(old):(old||'—'), field==='responsibleId'?userLabel(value):(value||'—'));
+  persistTask(t, prev);
 }
 function addChecklistItem(taskId, text){
   if(!text.trim()) return;
-  var t=taskById(taskId); t.checklist.push({id:uid('ck'), text:text.trim(), done:false});
+  var t=taskById(taskId); var prev = snapshot(t);
+  t.checklist.push({id:uid('ck'), text:text.trim(), done:false});
+  persistTask(t, prev);
 }
 function toggleChecklist(taskId, itemId){
-  var t=taskById(taskId); var it=t.checklist.find(function(i){return i.id===itemId;}); if(it) it.done=!it.done;
+  var t=taskById(taskId); var it=t.checklist.find(function(i){return i.id===itemId;}); if(!it) return;
+  var prev = snapshot(t);
+  it.done=!it.done;
+  persistTask(t, prev);
 }
 function addSubtask(taskId, title){
   if(!title.trim()) return;
-  var t=taskById(taskId); t.subtasks.push({id:uid('st'), title:title.trim(), done:false, responsibleId:t.responsibleId});
+  var t=taskById(taskId); var prev = snapshot(t);
+  t.subtasks.push({id:uid('st'), title:title.trim(), done:false, responsibleId:t.responsibleId});
+  persistTask(t, prev);
 }
 function toggleSubtask(taskId, stId){
-  var t=taskById(taskId); var s=t.subtasks.find(function(i){return i.id===stId;}); if(s) s.done=!s.done;
+  var t=taskById(taskId); var s=t.subtasks.find(function(i){return i.id===stId;}); if(!s) return;
+  var prev = snapshot(t);
+  s.done=!s.done;
+  persistTask(t, prev);
 }
 function addComment(taskId, text){
   if(!text.trim()) return;
-  var t=taskById(taskId);
+  var t=taskById(taskId); var prev = snapshot(t);
   t.comments.push({id:uid('cm'), authorId:state.currentUserId, text:text.trim(), createdAt:nowISOTime()});
+  var notifRows=[];
   USERS.forEach(function(u){
     if(u.id===state.currentUserId) return;
     var first=u.name.split(' ')[0];
     if(text.indexOf('@'+u.name)>-1 || text.indexOf('@'+first)>-1){
-      NOTIFICATIONS.unshift({id:uid('n'), userId:u.id, text:userLabel(state.currentUserId)+' mencionou você em "'+t.title+'".', createdAt:nowISOTime(), read:false});
-      showToast('Notificação enviada para '+u.name+'.');
+      notifRows.push({ user_id:u.id, text:userLabel(state.currentUserId)+' mencionou você em "'+t.title+'".' });
     }
   });
+  persistTask(t, prev);
+  if(notifRows.length){ KMDB.insertNotifications(notifRows).catch(function(){}); showToast('Notificação enviada.'); }
 }
 function addAttachment(taskId, name){
   if(!name.trim()) return;
-  var t=taskById(taskId);
+  var t=taskById(taskId); var prev = snapshot(t);
   t.attachments.push({id:uid('at'), name:name.trim(), size:(Math.round(Math.random()*4000)/1000).toFixed(1)+' MB', uploadedBy:state.currentUserId, createdAt:nowISOTime()});
+  persistTask(t, prev);
 }
 function addLink(taskId, url, label){
   if(!url.trim()) return;
-  var t=taskById(taskId);
+  var t=taskById(taskId); var prev = snapshot(t);
   t.links.push({id:uid('lk'), url:url.trim(), label:(label.trim()||url.trim())});
+  persistTask(t, prev);
 }
 function createTask(data){
   var a = area(data.areaId);
@@ -224,7 +252,9 @@ function createTask(data){
     priority:data.priority, status:FLOWS[a.flow][0], dueDate:data.dueDate||null, createdAt:TODAY_ISO
   });
   t.history.push({id:uid('h'), field:'criação', from:null, to:'Tarefa criada', at:nowISOTime(), by:state.currentUserId});
-  TASKS.push(t);
+  KMDB.insertTask(t).then(function(saved){
+    TASKS.push(saved); renderContent();
+  }).catch(function(){ showToast('Não foi possível criar a tarefa — tente de novo.'); });
   return t;
 }
 
@@ -768,7 +798,7 @@ document.addEventListener('click', function(e){
 
   if(e.target.closest('#notifBtn')){ state.notifOpen=!state.notifOpen; renderNotifBell(); return; }
   var notifRow = e.target.closest('[data-notif]');
-  if(notifRow){ var n=NOTIFICATIONS.find(function(x){return x.id===notifRow.getAttribute('data-notif');}); if(n) n.read=true; renderNotifBell(); return; }
+  if(notifRow){ var n=NOTIFICATIONS.find(function(x){return x.id===notifRow.getAttribute('data-notif');}); if(n){ n.read=true; KMDB.markNotifRead(n.id).catch(function(){}); } renderNotifBell(); return; }
   if(!e.target.closest('#notifPanel') && !e.target.closest('#notifBtn') && state.notifOpen){ state.notifOpen=false; renderNotifBell(); }
 
   if(e.target.closest('#newTaskBtn')){ openModal(); return; }
@@ -783,7 +813,7 @@ document.addEventListener('click', function(e){
       responsibleId:document.getElementById('mResponsible').value, priority:document.getElementById('mPriority').value,
       dueDate:document.getElementById('mDue').value||null
     });
-    closeModal(); showToast('Tarefa criada.'); renderContent();
+    closeModal(); showToast('Tarefa criada.');
     return;
   }
 
