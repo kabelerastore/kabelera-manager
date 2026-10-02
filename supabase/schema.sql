@@ -84,26 +84,63 @@ alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.notifications enable row level security;
 
--- profiles: todos autenticados leem; cada um edita o próprio perfil (campos não-admin);
--- admin edita qualquer perfil (inclui is_admin / is_active).
+-- Guarda: só admin altera is_admin / is_active em profiles (RLS não filtra por coluna).
+create or replace function public.guard_profile_privileged_fields()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (new.is_admin is distinct from old.is_admin
+      or new.is_active is distinct from old.is_active)
+     and not public.is_admin() then
+    raise exception 'Apenas administradores podem alterar is_admin ou is_active.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_guard_profile_privileged on public.profiles;
+create trigger trg_guard_profile_privileged
+  before update on public.profiles
+  for each row execute function public.guard_profile_privileged_fields();
+
+-- profiles: todos autenticados leem; cada um edita o próprio perfil (campos privilegiados
+-- bloqueados pelo trigger acima); admin edita/insere qualquer perfil. Sem DELETE.
+drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles for select to authenticated using (true);
-create policy profiles_update_self on public.profiles for update to authenticated
-  using (id = auth.uid()) with check (id = auth.uid());
-create policy profiles_admin_all on public.profiles for all to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+drop policy if exists profiles_update_self on public.profiles;
+create policy profiles_update_self on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+drop policy if exists profiles_admin_update on public.profiles;
+create policy profiles_admin_update on public.profiles for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists profiles_admin_insert on public.profiles;
+create policy profiles_admin_insert on public.profiles for insert to authenticated with check (public.is_admin());
 
--- areas: todos autenticados leem; só admin insere/edita.
+-- areas: todos autenticados leem; só admin insere/edita. Sem DELETE.
+drop policy if exists areas_select on public.areas;
 create policy areas_select on public.areas for select to authenticated using (true);
-create policy areas_admin_write on public.areas for all to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+drop policy if exists areas_admin_insert on public.areas;
+create policy areas_admin_insert on public.areas for insert to authenticated with check (public.is_admin());
+drop policy if exists areas_admin_update on public.areas;
+create policy areas_admin_update on public.areas for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
--- projects e tasks: todos autenticados leem e escrevem.
-create policy projects_rw on public.projects for all to authenticated using (true) with check (true);
-create policy tasks_rw on public.tasks for all to authenticated using (true) with check (true);
+-- projects e tasks: todos autenticados leem, inserem e editam. Sem DELETE (desativação é lógica).
+drop policy if exists projects_select on public.projects;
+create policy projects_select on public.projects for select to authenticated using (true);
+drop policy if exists projects_insert on public.projects;
+create policy projects_insert on public.projects for insert to authenticated with check (true);
+drop policy if exists projects_update on public.projects;
+create policy projects_update on public.projects for update to authenticated using (true) with check (true);
 
--- notifications: cada um vê/edita só as suas; qualquer autenticado pode inserir (para mencionar outro).
+drop policy if exists tasks_select on public.tasks;
+create policy tasks_select on public.tasks for select to authenticated using (true);
+drop policy if exists tasks_insert on public.tasks;
+create policy tasks_insert on public.tasks for insert to authenticated with check (true);
+drop policy if exists tasks_update on public.tasks;
+create policy tasks_update on public.tasks for update to authenticated using (true) with check (true);
+
+-- notifications: cada um vê/edita só as suas; qualquer autenticado insere (para mencionar outro). Sem DELETE.
+drop policy if exists notif_select_own on public.notifications;
 create policy notif_select_own on public.notifications for select to authenticated using (user_id = auth.uid());
-create policy notif_update_own on public.notifications for update to authenticated using (user_id = auth.uid());
+drop policy if exists notif_update_own on public.notifications;
+create policy notif_update_own on public.notifications for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists notif_insert on public.notifications;
 create policy notif_insert on public.notifications for insert to authenticated with check (true);
 
 -- SEED das 5 áreas originais (idempotente por nome)
