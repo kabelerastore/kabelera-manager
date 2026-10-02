@@ -908,7 +908,8 @@ async function startApp(){
   document.getElementById('gateScreen').classList.remove('show');
   document.getElementById('app').style.display='';
   document.getElementById('content').innerHTML = '<div class="app-loading">Carregando seus dados...</div>';
-  await bootstrapData();                 // definido na Task 7
+  var ok = await bootstrapData();         // definido na Task 7
+  if(!ok) return; // falha de carga: showLoadError() já mostrou a tela de erro com "Tentar de novo"
   if(!location.hash) location.hash = '#/dashboard';
   onHashChange();
 }
