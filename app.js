@@ -400,7 +400,7 @@ function renderSidebar(){
 
   var footer = document.querySelector('.sidebar-footer .user-switch');
   if(footer){
-    footer.innerHTML = '<div class="avatar" id="currentUserAvatar">'+initialsOf(state.currentUserId)+'</div>' +
+    footer.innerHTML = '<div class="avatar" id="currentUserAvatar">'+esc(initialsOf(state.currentUserId))+'</div>' +
       '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;">'+esc(userLabel(state.currentUserId))+'</div></div>' +
       '<button class="btn btn-ghost btn-sm" id="logoutBtn">Sair</button>';
   }
