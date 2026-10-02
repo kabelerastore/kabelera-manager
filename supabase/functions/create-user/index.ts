@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
     const { data: prof } = await admin.from("profiles").select("is_admin").eq("id", userData.user.id).single();
     if (!prof?.is_admin) return json({ ok: false, error: "Apenas administradores podem criar usuários." }, 403);
 
-    const body = await req.json();
+    let body;
+    try { body = await req.json(); }
+    catch (_e) { return json({ ok: false, error: "Corpo da requisição inválido." }, 400); }
     const { email, password, name, role_label, area_ids, is_admin } = body;
     if (!email || !password || !name) return json({ ok: false, error: "E-mail, senha e nome são obrigatórios." }, 400);
 
@@ -36,9 +38,13 @@ Deno.serve(async (req) => {
 
     const { error: profErr } = await admin.from("profiles").insert({
       id: created.user.id, name, role_label: role_label || "",
-      area_ids: area_ids || [], is_admin: !!is_admin, is_active: true,
+      area_ids: Array.isArray(area_ids) ? area_ids : [], is_admin: !!is_admin, is_active: true,
     });
-    if (profErr) return json({ ok: false, error: "Usuário criado no Auth, mas falhou o perfil: " + profErr.message }, 500);
+    if (profErr) {
+      // rollback: evita um usuário de Auth órfão, sem perfil (que ficaria sem admin e quebraria o próprio gate).
+      await admin.auth.admin.deleteUser(created.user.id);
+      return json({ ok: false, error: "Falha ao criar o perfil; o usuário foi revertido. " + profErr.message }, 500);
+    }
 
     return json({ ok: true, id: created.user.id });
   } catch (e) {
