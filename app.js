@@ -157,10 +157,12 @@ async function persistTask(t, prevSnapshot, okMsg){
     var saved = await KMDB.updateTask(t.id, t);
     Object.assign(t, saved);
     if(okMsg) showToast(okMsg);
+    return true;
   }catch(e){
     if(prevSnapshot){ Object.assign(t, prevSnapshot); }
     showToast('Não foi possível salvar — tente de novo.');
     renderContent(); if(state.drawerTaskId) renderDrawer();
+    return false;
   }
 }
 function moveTask(taskId, newStatus){
@@ -217,7 +219,7 @@ function toggleSubtask(taskId, stId){
   s.done=!s.done;
   persistTask(t, prev);
 }
-function addComment(taskId, text){
+async function addComment(taskId, text){
   if(!text.trim()) return;
   var t=taskById(taskId); var prev = snapshot(t);
   t.comments.push({id:uid('cm'), authorId:state.currentUserId, text:text.trim(), createdAt:nowISOTime()});
@@ -229,8 +231,8 @@ function addComment(taskId, text){
       notifRows.push({ user_id:u.id, text:userLabel(state.currentUserId)+' mencionou você em "'+t.title+'".' });
     }
   });
-  persistTask(t, prev);
-  if(notifRows.length){ KMDB.insertNotifications(notifRows).catch(function(){}); showToast('Notificação enviada.'); }
+  var ok = await persistTask(t, prev);
+  if(ok && notifRows.length){ KMDB.insertNotifications(notifRows).catch(function(){}); showToast('Notificação enviada.'); }
 }
 function addAttachment(taskId, name){
   if(!name.trim()) return;
