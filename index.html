@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kabelera Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#content">Pular para o conteúdo</a>
+<div id="gateScreen" class="gate-screen"></div>
+<div id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="brand-mark">KM</div>
+      <div class="brand">Kabelera<small>Manager</small></div>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Fechar menu"></button>
+    </div>
+    <div style="overflow-y:auto; flex:1;">
+      <div class="nav-group" id="navMain"></div>
+      <div class="nav-label">Áreas</div>
+      <div class="nav-group" id="navAreas"></div>
+      <div class="nav-group" id="navFooterLinks"></div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-switch">
+        <div class="avatar" id="currentUserAvatar"></div>
+        <select id="currentUserSelect" aria-label="Ver como usuário"></select>
+      </div>
+      <div class="proto-badge">Protótipo interativo · dados fictícios em memória. Atualizar a página reinicia os dados.</div>
+    </div>
+  </aside>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="hamburger icon-btn" id="hamburgerBtn" aria-label="Abrir menu"></button>
+      <div>
+        <h1 class="page-title" id="pageTitle">Visão Geral</h1>
+        <div class="page-sub" id="pageSub"></div>
+      </div>
+      <div class="topbar-actions">
+        <div style="position:relative;">
+          <button class="icon-btn" id="notifBtn" aria-label="Notificações"></button>
+          <div id="notifPanel"></div>
+        </div>
+        <button class="btn btn-primary" id="newTaskBtn"></button>
+      </div>
+    </header>
+    <main class="content" id="content" tabindex="-1"></main>
+  </div>
+
+  <nav class="mobile-nav" id="mobileNav"></nav>
+</div>
+<div class="overlay" id="sidebarOverlay"></div>
+<div class="overlay" id="drawerOverlay"></div>
+<aside class="task-drawer" id="taskDrawer"></aside>
+<div class="toast" id="toast"></div>
+
+<script src="lib.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
