@@ -4,8 +4,30 @@ var KM = window.KM;
 var KMDB = window.KMDB;
 var esc = KM.esc;
 
-/* STUB TEMPORÁRIO (Task 6) — substituído pela implementação real na Task 7 */
-async function bootstrapData(){}
+async function bootstrapData(){
+  var attempt = 0;
+  async function tryLoad(){
+    attempt++;
+    try{
+      var data = await KMDB.loadAll();
+      USERS = data.users; AREAS = data.areas; PROJECTS = data.projects;
+      TASKS = data.tasks; NOTIFICATIONS = data.notifications;
+      state.me = data.me;
+      state.currentUserId = data.me ? data.me.id : (USERS[0] && USERS[0].id);
+      return true;
+    }catch(e){
+      if(attempt < 2) return tryLoad();
+      showLoadError();
+      return false;
+    }
+  }
+  return tryLoad();
+}
+function showLoadError(){
+  document.getElementById('content').innerHTML =
+    '<div class="app-error">Não foi possível carregar os dados.<br><br>' +
+    '<button class="btn btn-primary" id="retryLoadBtn">Tentar de novo</button></div>';
+}
 
 /* ======================= ICONS ======================= */
 function icon(name, size){
@@ -54,38 +76,15 @@ function fmtDateTime(s){ var d=new Date(s); return d.toLocaleDateString('pt-BR',
 function nowISOTime(){ var d=new Date(TODAY); return d.toISOString(); }
 function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9); }
 
-var USERS = [
-  {id:'patricia', name:'Paty', role:'colaborador', roleLabel:'Marketing, Design & Gestão de Marca', areas:['marketing','design'], initials:'PA'},
-  {id:'caio', name:'Caio', role:'colaborador', roleLabel:'Administração, Financeiro & Operações', areas:['administracao','financeiro'], initials:'CA'},
-  {id:'calebe', name:'Calebe', role:'colaborador', roleLabel:'Comercial & Estratégia', areas:['comercial'], initials:'CB'}
-];
-// A equipe real tem 3 pessoas. Os dados de exemplo abaixo foram escritos originalmente para
-// um time maior e depois consolidados nessas 3 pessoas pelo mapeamento ID_MAP mais abaixo:
-// Paty assume marketing + design (e gestão de marca); Caio assume administração + financeiro (operações); Calebe assume comercial (e estratégia).
-var ID_MAP = {
-  bruno:'patricia', carla:'patricia', fabio:'patricia', giulia:'patricia',
-  joaopedro:'caio', isabela:'caio', henrique:'caio', ana:'caio',
-  diego:'calebe', elaine:'calebe'
-};
-function remapUser(id){ return ID_MAP[id] || id; }
+var USERS = [];
 function user(id){ return USERS.find(function(u){return u.id===id;}); }
 
 var FLOWS = KM.FLOWS, FINAL_STATUSES = KM.FINAL_STATUSES, RETURN_RULES = KM.RETURN_RULES;
 
-var AREAS = [
-  {id:'marketing', name:'Marketing', flow:'creative', dep:'marketing', subcats:['Planejamento','Conteúdo','Social Media','Campanhas','Tráfego Pago','Influenciadores e Parcerias','Eventos','E-mail e WhatsApp','Análise de Resultados']},
-  {id:'administracao', name:'Administração', flow:'admin', dep:'admin', subcats:['Documentos','Contratos','Fornecedores','Estoque e Operação','Logística','Processos Internos','Reuniões','Jurídico','RH e Equipe']},
-  {id:'design', name:'Design', flow:'creative', dep:'design', subcats:['Social Media','Campanhas','E-commerce','Materiais Impressos','Embalagens','Produto','Identidade Visual','Foto e Vídeo','Aprovações']},
-  {id:'financeiro', name:'Financeiro', flow:'financeiro', dep:'financeiro', subcats:['Contas a Pagar','Contas a Receber','Fluxo de Caixa','Cobranças','Impostos','Notas Fiscais','Orçamento','Conciliação','Relatórios']},
-  {id:'comercial', name:'Comercial', flow:'comercial', dep:'comercial', subcats:['Leads','Prospecção','Atendimento','Propostas','Negociação','Vendas','Pós-venda','CRM','Parcerias']}
-];
+var AREAS = [];
 function area(id){ return AREAS.find(function(a){return a.id===id;}); }
 
-var PROJECTS = [
-  {id:'proj_lancamento', name:'Lançamento Nova Coleção', description:'Lançamento da coleção de verão em todos os canais: loja física, e-commerce e redes sociais.', responsibleId:'bruno', participants:['bruno','carla','fabio','giulia','diego','henrique','joaopedro','isabela'], startDate:iso(-20), dueDate:iso(25), status:'Em andamento'},
-  {id:'proj_reforma', name:'Reforma da Loja Conceito', description:'Reforma do espaço físico da loja principal para o novo conceito visual da marca.', responsibleId:'joaopedro', participants:['joaopedro','fabio','henrique'], startDate:iso(-5), dueDate:iso(45), status:'Em andamento'},
-  {id:'proj_blackfriday', name:'Campanha Black Friday', description:'Planejamento e execução da campanha de Black Friday em todos os canais de venda.', responsibleId:'bruno', participants:['bruno','giulia','isabela'], startDate:iso(20), dueDate:iso(55), status:'Planejamento'}
-];
+var PROJECTS = [];
 function project(id){ return PROJECTS.find(function(p){return p.id===id;}); }
 
 function mkTask(o){
@@ -95,134 +94,13 @@ function mkTask(o){
   }, o);
 }
 
-var TASKS = [
-  // MARKETING
-  mkTask({title:'Planejamento de conteúdo — Nova Coleção', description:'Definir os temas, formatos e datas de publicação do conteúdo de lançamento da nova coleção.', areaId:'marketing', subcategory:'Conteúdo', projectId:'proj_lancamento', requesterId:'ana', responsibleId:'carla', priority:'Média', status:'Concluído', dueDate:iso(6), completedAt:iso(-4), createdAt:iso(-18)}),
-  mkTask({title:'Roteiro de vídeo institucional', description:'Roteiro para o vídeo institucional que apresenta a marca aos novos clientes.', areaId:'marketing', subcategory:'Conteúdo', requesterId:'bruno', responsibleId:'carla', priority:'Alta', status:'Em produção', dueDate:iso(3)}),
-  mkTask({title:'Post feed — teaser Nova Coleção', description:'Arte e legenda do post teaser anunciando a nova coleção nas redes sociais.', areaId:'marketing', subcategory:'Social Media', projectId:'proj_lancamento', requesterId:'bruno', responsibleId:'carla', participants:['bruno'], priority:'Alta', status:'Aprovação', dueDate:iso(1)}),
-  mkTask({title:'Estratégia de lançamento — Nova Coleção', description:'Documento de estratégia com posicionamento, canais, cronograma e metas do lançamento.', areaId:'marketing', subcategory:'Planejamento', projectId:'proj_lancamento', requesterId:'ana', responsibleId:'bruno', priority:'Urgente', status:'Em produção', dueDate:iso(-1),
-    checklist:[{id:uid('ck'),text:'Mapear canais de divulgação',done:true},{id:uid('ck'),text:'Definir cronograma de mídia',done:true},{id:uid('ck'),text:'Validar orçamento com Financeiro',done:false},{id:uid('ck'),text:'Aprovar posicionamento com direção',done:false}],
-    subtasks:[{id:uid('st'),title:'Levantar concorrentes diretos',done:true,responsibleId:'carla'},{id:uid('st'),title:'Reunião de alinhamento com Comercial',done:false,responsibleId:'bruno'}],
-    comments:[{id:uid('cm'),authorId:'ana',text:'Precisamos fechar isso ainda essa semana, o time comercial está esperando.',createdAt:iso(-2)+'T14:20:00'}],
-    dependencies:[],
-    history:[{id:uid('h'),field:'status',from:'Planejamento',to:'Em produção',at:iso(-6)+'T09:00:00',by:'bruno'},{id:uid('h'),field:'prioridade',from:'Alta',to:'Urgente',at:iso(-2)+'T14:22:00',by:'ana'}]
-  }),
-  mkTask({title:'Configurar campanha Meta Ads — Setembro', description:'Configuração de campanha de tráfego pago para o mês de setembro.', areaId:'marketing', subcategory:'Tráfego Pago', requesterId:'bruno', responsibleId:'carla', priority:'Média', status:'Programado', dueDate:iso(5)}),
-  mkTask({title:'Parceria com influenciadora @paula.moda', description:'Negociar permuta de produtos por conteúdo com a influenciadora.', areaId:'marketing', subcategory:'Influenciadores e Parcerias', requesterId:'bruno', responsibleId:'bruno', priority:'Baixa', status:'Backlog', dueDate:null, createdAt:iso(-16)}),
-  mkTask({title:'Disparo de e-mail — carrinho abandonado', description:'Configurar automação de e-mail para clientes que abandonaram o carrinho.', areaId:'marketing', subcategory:'E-mail e WhatsApp', requesterId:'ana', responsibleId:'carla', priority:'Média', status:'Revisão', dueDate:iso(2)}),
-  mkTask({title:'Relatório de performance — agosto', description:'Consolidar métricas de todas as campanhas de agosto.', areaId:'marketing', subcategory:'Análise de Resultados', requesterId:'ana', responsibleId:'bruno', priority:'Baixa', status:'Concluído', dueDate:iso(-10), completedAt:iso(-8)}),
-  mkTask({title:'Planejamento do evento de inauguração da loja', description:'Estruturar o evento de inauguração da loja reformada.', areaId:'marketing', subcategory:'Eventos', requesterId:'ana', responsibleId:'bruno', priority:'Baixa', status:'Backlog', dueDate:iso(30), createdAt:iso(-19)}),
-  mkTask({title:'Estratégia Black Friday', description:'Definir eixo criativo e canais para a campanha de Black Friday.', areaId:'marketing', subcategory:'Planejamento', projectId:'proj_blackfriday', requesterId:'bruno', responsibleId:'bruno', priority:'Média', status:'Backlog', dueDate:iso(35)}),
+var TASKS = [];
 
-  // DESIGN
-  mkTask({title:'Key Visual — Nova Coleção', description:'Peça-chave visual que vai nortear toda a comunicação da nova coleção.', areaId:'design', subcategory:'Identidade Visual', projectId:'proj_lancamento', requesterId:'bruno', responsibleId:'giulia', participants:['fabio'], priority:'Urgente', status:'Aprovação', dueDate:iso(0),
-    checklist:[{id:uid('ck'),text:'Explorar 3 direções de arte',done:true},{id:uid('ck'),text:'Selecionar direção final com Marketing',done:true},{id:uid('ck'),text:'Preparar variações para redes sociais',done:false}],
-    comments:[{id:uid('cm'),authorId:'giulia',text:'Segue a versão final para aprovação, ajustei o contraste do logo conforme o feedback.',createdAt:iso(-1)+'T11:05:00'},{id:uid('cm'),authorId:'ana',text:'Ficou ótimo! Só confirma se a paleta está alinhada com a campanha de mídia paga antes de programar.',createdAt:iso(-1)+'T16:40:00'}],
-    attachments:[{id:uid('at'),name:'key-visual-v3-final.png',size:'2.4 MB',uploadedBy:'giulia',createdAt:iso(-1)+'T11:00:00'},{id:uid('at'),name:'variações-redes-sociais.zip',size:'8.1 MB',uploadedBy:'giulia',createdAt:iso(-1)+'T11:02:00'}],
-    dependencies:[],
-    history:[{id:uid('h'),field:'status',from:'Em produção',to:'Revisão',at:iso(-3)+'T10:00:00',by:'giulia'},{id:uid('h'),field:'status',from:'Revisão',to:'Aprovação',at:iso(-1)+'T11:05:00',by:'giulia'}]
-  }),
-  mkTask({title:'Criativos — Nova Coleção (tráfego pago)', description:'Peças criativas para os anúncios de tráfego pago da nova coleção.', areaId:'design', subcategory:'Campanhas', projectId:'proj_lancamento', requesterId:'carla', responsibleId:'giulia', priority:'Alta', status:'Em produção', dueDate:iso(3)}),
-  mkTask({title:'Banner home do e-commerce', description:'Banner principal da home do site para a semana promocional.', areaId:'design', subcategory:'E-commerce', requesterId:'carla', responsibleId:'giulia', priority:'Média', status:'Revisão', dueDate:iso(1)}),
-  mkTask({title:'Etiquetas e embalagem da nova coleção', description:'Design das etiquetas e da embalagem para os produtos da nova coleção.', areaId:'design', subcategory:'Embalagens', projectId:'proj_lancamento', requesterId:'joaopedro', responsibleId:'fabio', priority:'Alta', status:'Planejamento', dueDate:iso(8)}),
-  mkTask({title:'Catálogo impresso — showroom', description:'Catálogo impresso para apresentação no showroom aos lojistas parceiros.', areaId:'design', subcategory:'Materiais Impressos', requesterId:'diego', responsibleId:'giulia', priority:'Baixa', status:'Backlog', dueDate:null, createdAt:iso(-20)}),
-  mkTask({title:'Sessão de fotos — lookbook nova coleção', description:'Produção fotográfica do lookbook oficial da nova coleção.', areaId:'design', subcategory:'Foto e Vídeo', projectId:'proj_lancamento', requesterId:'bruno', responsibleId:'fabio', priority:'Alta', status:'Programado', dueDate:iso(12)}),
-  mkTask({title:'Atualizar manual de marca', description:'Revisão geral do manual de identidade visual da marca.', areaId:'design', subcategory:'Identidade Visual', requesterId:'fabio', responsibleId:'fabio', priority:'Baixa', status:'Backlog', dueDate:iso(40), createdAt:iso(-25)}),
-  mkTask({title:'Aprovar mockups de produto — linha inverno', description:'Mockups dos novos produtos da linha de inverno para aprovação da direção.', areaId:'design', subcategory:'Produto', requesterId:'ana', responsibleId:'fabio', priority:'Média', status:'Aprovação', dueDate:iso(-2),
-    history:[{id:uid('h'),field:'status',from:'Revisão',to:'Aprovação',at:iso(-4)+'T09:30:00',by:'fabio'}]
-  }),
-  mkTask({title:'Revisar posts sociais da semana', description:'Revisão final das artes de redes sociais antes da publicação.', areaId:'design', subcategory:'Aprovações', requesterId:'bruno', responsibleId:'fabio', priority:'Média', status:'Concluído', dueDate:iso(-5), completedAt:iso(-5)}),
-  mkTask({title:'Conceito visual da nova loja', description:'Direção de arte para o novo conceito visual da loja física.', areaId:'design', subcategory:'Identidade Visual', projectId:'proj_reforma', requesterId:'joaopedro', responsibleId:'fabio', priority:'Média', status:'Planejamento', dueDate:iso(20)}),
-  mkTask({title:'Peças gráficas Black Friday', description:'Kit de peças gráficas para a campanha de Black Friday em todos os canais.', areaId:'design', subcategory:'Campanhas', projectId:'proj_blackfriday', requesterId:'bruno', responsibleId:'giulia', priority:'Baixa', status:'Backlog', dueDate:iso(40)}),
-
-  // COMERCIAL
-  mkTask({title:'Qualificar leads da campanha de setembro', description:'Triagem e qualificação dos leads recebidos pela campanha de tráfego pago.', areaId:'comercial', subcategory:'Leads', requesterId:'diego', responsibleId:'elaine', priority:'Média', status:'Novo Lead', dueDate:iso(2)}),
-  mkTask({title:'Prospecção ativa — lojistas região sul', description:'Prospecção de novos lojistas parceiros na região sul do país.', areaId:'comercial', subcategory:'Prospecção', requesterId:'diego', responsibleId:'elaine', priority:'Baixa', status:'Contato', dueDate:iso(7)}),
-  mkTask({title:'Atendimento — pedido corporativo Loja Bella', description:'Atendimento ao pedido corporativo solicitado pela Loja Bella.', areaId:'comercial', subcategory:'Atendimento', requesterId:'elaine', responsibleId:'elaine', priority:'Alta', status:'Qualificação', dueDate:iso(1)}),
-  mkTask({title:'Proposta comercial — rede Vitrine Moda', description:'Elaborar proposta comercial para a rede de lojas Vitrine Moda.', areaId:'comercial', subcategory:'Propostas', requesterId:'diego', responsibleId:'diego', priority:'Alta', status:'Proposta', dueDate:iso(0)}),
-  mkTask({title:'Negociação de condições — cliente Estação Norte', description:'Negociar prazos e condições comerciais com o cliente Estação Norte.', areaId:'comercial', subcategory:'Negociação', requesterId:'diego', responsibleId:'diego', priority:'Urgente', status:'Negociação', dueDate:iso(-1),
-    comments:[{id:uid('cm'),authorId:'diego',text:'Cliente pediu mais 5 dias de prazo de pagamento, vou levar para o Financeiro avaliar.',createdAt:iso(-1)+'T13:00:00'},{id:uid('cm'),authorId:'henrique',text:'Consigo liberar até 45 dias sem problema, pode fechar.',createdAt:iso(-1)+'T15:30:00'}],
-    links:[{id:uid('lk'),url:'https://exemplo.com/propostas/estacao-norte-v2',label:'Proposta v2 (PDF)'}],
-    history:[{id:uid('h'),field:'status',from:'Proposta',to:'Negociação',at:iso(-4)+'T10:00:00',by:'diego'}]
-  }),
-  mkTask({title:'Estratégia comercial — Nova Coleção', description:'Definir metas de venda, mix de produtos e argumentos comerciais para a nova coleção.', areaId:'comercial', subcategory:'Vendas', projectId:'proj_lancamento', requesterId:'ana', responsibleId:'diego', priority:'Alta', status:'Qualificação', dueDate:iso(9)}),
-  mkTask({title:'Atualizar cadastro de clientes no CRM', description:'Padronizar e atualizar os cadastros de clientes ativos no CRM.', areaId:'comercial', subcategory:'CRM', requesterId:'diego', responsibleId:'elaine', priority:'Baixa', status:'Contato', dueDate:iso(4)}),
-  mkTask({title:'Fechamento — pedido loja Vitrine Moda', description:'Fechamento do pedido negociado com a rede Vitrine Moda.', areaId:'comercial', subcategory:'Vendas', requesterId:'diego', responsibleId:'diego', priority:'Média', status:'Fechado', dueDate:iso(-6), completedAt:iso(-6)}),
-  mkTask({title:'Follow-up pós-venda — cliente Estação Norte', description:'Follow-up de satisfação após a entrega do pedido.', areaId:'comercial', subcategory:'Pós-venda', requesterId:'diego', responsibleId:'elaine', priority:'Baixa', status:'Pós-venda', dueDate:iso(-3), completedAt:iso(-3)}),
-
-  // FINANCEIRO
-  mkTask({title:'Pagamento — fornecedor de tecidos', description:'Processar pagamento da fatura do fornecedor de tecidos do mês.', areaId:'financeiro', subcategory:'Contas a Pagar', requesterId:'joaopedro', responsibleId:'henrique', priority:'Alta', status:'Pendente', dueDate:iso(1)}),
-  mkTask({title:'Cobrança — cliente em atraso Loja Nova Era', description:'Realizar cobrança formal do cliente com fatura em atraso.', areaId:'financeiro', subcategory:'Cobranças', requesterId:'diego', responsibleId:'henrique', priority:'Urgente', status:'Pendente', dueDate:iso(-2),
-    attachments:[{id:uid('at'),name:'boleto-nova-era-ago.pdf',size:'180 KB',uploadedBy:'henrique',createdAt:iso(-2)+'T08:00:00'}],
-    comments:[{id:uid('cm'),authorId:'henrique',text:'Terceira tentativa de contato, vou escalar para o jurídico se não houver retorno até sexta.',createdAt:iso(-1)+'T09:00:00'}]
-  }),
-  mkTask({title:'Emitir notas fiscais — pedidos da semana', description:'Emissão das notas fiscais referentes aos pedidos faturados na semana.', areaId:'financeiro', subcategory:'Notas Fiscais', requesterId:'henrique', responsibleId:'henrique', priority:'Média', status:'Programado', dueDate:iso(2)}),
-  mkTask({title:'Fluxo de caixa — projeção outubro', description:'Atualizar a projeção de fluxo de caixa para outubro.', areaId:'financeiro', subcategory:'Fluxo de Caixa', requesterId:'ana', responsibleId:'henrique', priority:'Média', status:'Aguardando', dueDate:iso(5)}),
-  mkTask({title:'Orçamento — campanha Nova Coleção', description:'Consolidar e aprovar o orçamento total da campanha de lançamento.', areaId:'financeiro', subcategory:'Orçamento', projectId:'proj_lancamento', requesterId:'bruno', responsibleId:'henrique', priority:'Alta', status:'Pendente', dueDate:iso(3)}),
-  mkTask({title:'Apuração de impostos — 3º trimestre', description:'Apuração e conferência dos impostos referentes ao terceiro trimestre.', areaId:'financeiro', subcategory:'Impostos', requesterId:'ana', responsibleId:'henrique', priority:'Alta', status:'Aguardando', dueDate:iso(15)}),
-  mkTask({title:'Conciliação bancária — agosto', description:'Conciliação dos extratos bancários referentes a agosto.', areaId:'financeiro', subcategory:'Conciliação', requesterId:'henrique', responsibleId:'henrique', priority:'Baixa', status:'Conciliado', dueDate:iso(-12), completedAt:iso(-10)}),
-  mkTask({title:'Relatório financeiro mensal — agosto', description:'Relatório consolidado dos resultados financeiros de agosto.', areaId:'financeiro', subcategory:'Relatórios', requesterId:'ana', responsibleId:'henrique', priority:'Baixa', status:'Pago/Recebido', dueDate:iso(-7), completedAt:iso(-7)}),
-  mkTask({title:'Orçamento da reforma', description:'Levantar e aprovar o orçamento total da reforma da loja conceito.', areaId:'financeiro', subcategory:'Orçamento', projectId:'proj_reforma', requesterId:'joaopedro', responsibleId:'henrique', priority:'Média', status:'Pendente', dueDate:iso(10)}),
-
-  // ADMINISTRAÇÃO
-  mkTask({title:'Renovar contrato de transportadora', description:'Renovação do contrato com a transportadora responsável pela logística.', areaId:'administracao', subcategory:'Contratos', requesterId:'ana', responsibleId:'joaopedro', priority:'Alta', status:'A Fazer', dueDate:iso(4)}),
-  mkTask({title:'Organizar documentos fiscais do trimestre', description:'Organização e arquivamento dos documentos fiscais do trimestre.', areaId:'administracao', subcategory:'Documentos', requesterId:'henrique', responsibleId:'isabela', priority:'Média', status:'Em Andamento', dueDate:iso(6)}),
-  mkTask({title:'Cotação com novos fornecedores de embalagem', description:'Levantar cotações de novos fornecedores de embalagem para a nova coleção.', areaId:'administracao', subcategory:'Fornecedores', projectId:'proj_lancamento', requesterId:'fabio', responsibleId:'joaopedro', priority:'Média', status:'Concluído', dueDate:iso(-2), completedAt:iso(-2)}),
-  mkTask({title:'Contagem de estoque — depósito central', description:'Contagem física do estoque no depósito central.', areaId:'administracao', subcategory:'Estoque e Operação', requesterId:'diego', responsibleId:'isabela', priority:'Alta', status:'A Fazer', dueDate:iso(-1)}),
-  mkTask({title:'Logística de entrega — nova coleção às lojas', description:'Planejar a logística de distribuição da nova coleção para as lojas parceiras.', areaId:'administracao', subcategory:'Logística', projectId:'proj_lancamento', requesterId:'diego', responsibleId:'joaopedro', priority:'Alta', status:'Solicitado', dueDate:iso(18)}),
-  mkTask({title:'Revisar processo de recebimento de mercadorias', description:'Mapear e revisar o processo interno de recebimento de mercadorias.', areaId:'administracao', subcategory:'Processos Internos', requesterId:'joaopedro', responsibleId:'isabela', priority:'Baixa', status:'Solicitado', dueDate:iso(25), createdAt:iso(-15)}),
-  mkTask({title:'Pauta da reunião mensal de diretoria', description:'Preparar a pauta da reunião mensal com a diretoria.', areaId:'administracao', subcategory:'Reuniões', requesterId:'ana', responsibleId:'ana', priority:'Média', status:'Em Andamento', dueDate:iso(2)}),
-  mkTask({title:'Revisão de contrato com fornecedor jurídico', description:'Revisão das cláusulas do contrato com o escritório de advocacia parceiro.', areaId:'administracao', subcategory:'Jurídico', requesterId:'ana', responsibleId:'ana', priority:'Alta', status:'Revisão', dueDate:iso(-3),
-    links:[{id:uid('lk'),url:'https://exemplo.com/juridico/contrato-rev4',label:'Minuta do contrato (rev. 4)'}],
-    history:[{id:uid('h'),field:'status',from:'Em Andamento',to:'Revisão',at:iso(-5)+'T09:00:00',by:'ana'}]
-  }),
-  mkTask({title:'Processo seletivo — assistente de e-commerce', description:'Condução do processo seletivo para a vaga de assistente de e-commerce.', areaId:'administracao', subcategory:'RH e Equipe', requesterId:'ana', responsibleId:'isabela', priority:'Média', status:'Concluído', dueDate:iso(-9), completedAt:iso(-9)}),
-  mkTask({title:'Cronograma de obra com fornecedor', description:'Alinhar o cronograma de obra da reforma com o fornecedor contratado.', areaId:'administracao', subcategory:'Fornecedores', projectId:'proj_reforma', requesterId:'joaopedro', responsibleId:'joaopedro', priority:'Média', status:'Aguardando Terceiro', dueDate:iso(15)}),
-  mkTask({title:'Planejamento de estoque para Black Friday', description:'Planejar níveis de estoque para atender a demanda da Black Friday.', areaId:'administracao', subcategory:'Estoque e Operação', projectId:'proj_blackfriday', requesterId:'diego', responsibleId:'isabela', priority:'Média', status:'Solicitado', dueDate:iso(30)})
-];
-// dependency example: Key Visual depends on the launch strategy task
-(function(){
-  var kv = TASKS.find(function(t){return t.title==='Key Visual — Nova Coleção';});
-  var strat = TASKS.find(function(t){return t.title==='Estratégia de lançamento — Nova Coleção';});
-  if(kv && strat) kv.dependencies = [strat.id];
-})();
-
-var NOTIFICATIONS = [
-  {id:uid('n'), userId:'fabio', text:'Você foi atribuído à tarefa "Aprovar mockups de produto — linha inverno".', createdAt:iso(-2)+'T09:00:00', read:true},
-  {id:uid('n'), userId:'fabio', text:'"Aprovar mockups de produto — linha inverno" está atrasada.', createdAt:iso(0)+'T08:00:00', read:false},
-  {id:uid('n'), userId:'fabio', text:'Novo comentário em "Key Visual — Nova Coleção".', createdAt:iso(-1)+'T11:05:00', read:true},
-  {id:uid('n'), userId:'fabio', text:'"Key Visual — Nova Coleção" chegou para aprovação.', createdAt:iso(-1)+'T11:06:00', read:false},
-  {id:uid('n'), userId:'fabio', text:'Você aprovou "Revisar posts sociais da semana".', createdAt:iso(-5)+'T17:00:00', read:true},
-  {id:uid('n'), userId:'fabio', text:'Caio mencionou você em um comentário.', createdAt:iso(-1)+'T16:40:00', read:false},
-  {id:uid('n'), userId:'fabio', text:'Novo comentário em "Etiquetas e embalagem da nova coleção".', createdAt:iso(-3)+'T10:20:00', read:true},
-  {id:uid('n'), userId:'bruno', text:'"Estratégia de lançamento — Nova Coleção" está atrasada.', createdAt:iso(0)+'T08:00:00', read:false},
-  {id:uid('n'), userId:'bruno', text:'"Post feed — teaser Nova Coleção" chegou para aprovação.', createdAt:iso(-1)+'T09:00:00', read:false},
-  {id:uid('n'), userId:'diego', text:'O prazo de "Proposta comercial — rede Vitrine Moda" vence hoje.', createdAt:iso(0)+'T08:00:00', read:false},
-  {id:uid('n'), userId:'diego', text:'"Negociação de condições — cliente Estação Norte" está atrasada.', createdAt:iso(0)+'T08:00:00', read:false}
-];
-
-// Consolida os dados de exemplo (escritos para um time de 10 pessoas) nas 3 pessoas reais da equipe.
-(function remapAllUsers(){
-  function uniq(arr){ var seen=[]; arr.forEach(function(v){ if(seen.indexOf(v)===-1) seen.push(v); }); return seen; }
-  TASKS.forEach(function(t){
-    t.requesterId = remapUser(t.requesterId);
-    t.responsibleId = remapUser(t.responsibleId);
-    t.participants = uniq(t.participants.map(remapUser)).filter(function(id){ return id!==t.responsibleId; });
-    t.subtasks.forEach(function(s){ s.responsibleId = remapUser(s.responsibleId); });
-    t.comments.forEach(function(c){ c.authorId = remapUser(c.authorId); });
-    t.attachments.forEach(function(f){ f.uploadedBy = remapUser(f.uploadedBy); });
-    t.history.forEach(function(h){ h.by = remapUser(h.by); });
-  });
-  PROJECTS.forEach(function(p){
-    p.responsibleId = remapUser(p.responsibleId);
-    p.participants = uniq(p.participants.map(remapUser));
-  });
-  NOTIFICATIONS.forEach(function(n){ n.userId = remapUser(n.userId); });
-})();
+var NOTIFICATIONS = [];
 
 /* ======================= STATE ======================= */
 var state = {
-  currentUserId:'patricia',
+  currentUserId:null,
   route:{name:'dashboard', params:{}, view:'kanban'},
   drawerTaskId:null,
   drawerTab:'detalhes',
@@ -384,6 +262,11 @@ var NAV_AFTER_AREAS = [
   {route:'#/configuracoes', label:'Configurações', icon:'settings', match:'configuracoes'}
 ];
 var AREA_ICON = {marketing:'marketing', administracao:'admin', design:'design', financeiro:'finance', comercial:'sales'};
+function areaColorCSS(a){
+  // áreas originais usam token de cor (marketing, design...); novas usam hex.
+  var tokens = ['marketing','design','admin','financeiro','comercial'];
+  return tokens.indexOf(a.color)>-1 ? 'var(--dep-'+a.color+')' : a.color;
+}
 
 function renderSidebar(){
   var r = state.route;
@@ -394,7 +277,7 @@ function renderSidebar(){
   document.getElementById('navMain').innerHTML = NAV_MAIN.map(itemHTML).join('');
   document.getElementById('navAreas').innerHTML = AREAS.map(function(a){
     var active = r.name==='area' && r.params.areaId===a.id;
-    return '<button class="nav-item'+(active?' active':'')+'" data-nav="#/area/'+a.id+'"><span class="nav-dot" style="background:var(--dep-'+a.dep+')"></span><span>'+a.name+'</span></button>';
+    return '<button class="nav-item'+(active?' active':'')+'" data-nav="#/area/'+a.id+'"><span class="nav-dot" style="background:'+areaColorCSS(a)+'"></span><span>'+a.name+'</span></button>';
   }).join('');
   document.getElementById('navFooterLinks').innerHTML = NAV_AFTER_AREAS.map(itemHTML).join('');
 
@@ -874,6 +757,7 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#loginBtn')){ doLogin(); return; }
   if(e.target.closest('#forgotBtn')){ doForgot(); return; }
   if(e.target.closest('#logoutBtn')){ KMDB.signOut().then(function(){ location.hash=''; showLogin(); }); return; }
+  if(e.target.closest('#retryLoadBtn')){ startApp(); return; }
 
   var navBtn = e.target.closest('[data-nav]');
   if(navBtn){ navigate(navBtn.getAttribute('data-nav')); return; }
