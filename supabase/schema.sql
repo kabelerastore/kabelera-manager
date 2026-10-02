@@ -84,6 +84,13 @@ alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.notifications enable row level security;
 
+-- Remove políticas da versão anterior do script (nomes antigos) que concediam DELETE.
+-- Necessário porque este arquivo é colado e re-executado no mesmo banco.
+drop policy if exists profiles_admin_all on public.profiles;
+drop policy if exists areas_admin_write on public.areas;
+drop policy if exists projects_rw on public.projects;
+drop policy if exists tasks_rw on public.tasks;
+
 -- Guarda: só admin altera is_admin / is_active em profiles (RLS não filtra por coluna).
 create or replace function public.guard_profile_privileged_fields()
 returns trigger language plpgsql security definer set search_path = public as $$
