@@ -149,6 +149,7 @@ var mentionify = function(text){ return KM.mentionify(text, USERS); };
 function pushHistory(t, field, from, to){
   t.history.push({id:uid('h'), field:field, from:from, to:to, at:nowISOTime(), by:state.currentUserId});
 }
+function val(id){ var el=document.getElementById(id); return el?el.value.trim():''; }
 function showToast(msg){
   var el = document.getElementById('toast');
   el.textContent = msg;
@@ -653,9 +654,37 @@ function viewSettings(){
     }).join('') + '</div></div>' +
     '<div class="settings-block"><h3>Usuários e papéis</h3><div class="table-wrap"><table><thead><tr><th>Nome</th><th>Papel</th><th>Área</th></tr></thead><tbody>' +
     USERS.map(function(u){ return '<tr><td>'+u.name+(u.nickname?' <span class="tag">'+u.nickname+'</span>':'')+'</td><td>'+u.roleLabel+'</td><td>'+(u.areas&&u.areas.length?u.areas.map(function(id){return area(id).name;}).join(' + '):'Todas as áreas')+'</td></tr>'; }).join('') +
-    '</tbody></table></div></div>' +
-    '<div class="settings-block"><h3>Sobre este protótipo</h3><div class="card" style="padding:14px 16px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;">Este é um protótipo navegável com dados fictícios para validar fluxo e experiência antes da construção da versão com backend, banco de dados e autenticação real. Alterações feitas aqui (mover cards, aprovar tarefas, comentar, criar tarefas) ficam apenas na memória do navegador e são perdidas ao atualizar a página.</div></div>';
+    '</tbody></table></div></div>';
+  if(state.me && state.me.isAdmin){ html += adminAreasBlock() + adminUsersBlock(); }
+  html += '<div class="settings-block"><h3>Sobre o Kabelera Manager</h3><div class="card" style="padding:14px 16px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;">Gestão de projetos, tarefas e equipe da Kabelera, com dados salvos no Supabase e protegidos por login. Usuários e áreas são desativados, nunca apagados, para preservar o histórico.</div></div>';
   return html;
+}
+function adminUsersBlock(){
+  return '<div class="settings-block"><h3>Usuários (admin)</h3><div class="card" style="padding:14px 16px;">' +
+    USERS.map(function(u){
+      return '<div class="area-row"><div style="flex:1;"><b style="font-size:13px;">'+esc(u.name)+'</b> '+
+        (u.isAdmin?'<span class="tag">admin</span>':'')+'<div class="role">'+esc(u.roleLabel)+'</div></div>' +
+        '<button class="btn btn-ghost btn-sm" data-toggle-admin="'+u.id+'">'+(u.isAdmin?'Rebaixar':'Tornar admin')+'</button>' +
+        '<button class="btn btn-danger-ghost btn-sm" data-deactivate-user="'+u.id+'">Desativar</button></div>';
+    }).join('') +
+    '<div style="margin-top:14px;"><b style="font-size:12.5px;">Novo usuário</b>' +
+    '<div class="field-two" style="margin-top:8px;"><div class="field-row"><label>Nome</label><input id="nuName"></div>' +
+    '<div class="field-row"><label>E-mail</label><input id="nuEmail" type="email"></div></div>' +
+    '<div class="field-two"><div class="field-row"><label>Senha inicial</label><input id="nuPass" type="text"></div>' +
+    '<div class="field-row"><label>Função (texto)</label><input id="nuRole"></div></div>' +
+    '<label class="checklist-item"><input type="checkbox" id="nuAdmin"><span>É administrador</span></label>' +
+    '<button class="btn btn-primary btn-sm" id="createUserBtn" style="margin-top:8px;">Criar usuário</button></div>' +
+    '</div></div>';
+}
+function adminAreasBlock(){
+  return '<div class="settings-block"><h3>Nova área (admin)</h3><div class="card" style="padding:14px 16px;">' +
+    '<div class="field-two"><div class="field-row"><label>Nome</label><input id="naName"></div>' +
+    '<div class="field-row"><label>Cor (hex)</label><input id="naColor" type="text" value="#7A5AF8"></div></div>' +
+    '<div class="field-row"><label>Fluxo</label><select id="naFlow">' +
+    [['creative','Criativo'],['comercial','Comercial'],['financeiro','Financeiro'],['admin','Administrativo']].map(function(f){return '<option value="'+f[0]+'">'+f[1]+'</option>';}).join('') +
+    '</select></div>' +
+    '<div class="field-row"><label>Subcategorias (separadas por vírgula)</label><input id="naSubcats" placeholder="Ex: Planejamento, Execução, Relatórios"></div>' +
+    '<button class="btn btn-primary btn-sm" id="createAreaBtn">Criar área</button></div></div>';
 }
 
 /* ======================= DRAWER ======================= */
@@ -826,6 +855,30 @@ document.addEventListener('click', function(e){
       dueDate:document.getElementById('mDue').value||null
     });
     closeModal(); showToast('Tarefa criada.');
+    return;
+  }
+
+  if(e.target.closest('#createUserBtn')){
+    var payload={ email:val('nuEmail'), password:val('nuPass'), name:val('nuName'),
+      role_label:val('nuRole'), area_ids:[], is_admin:document.getElementById('nuAdmin').checked };
+    if(!payload.email||!payload.password||!payload.name){ showToast('Preencha nome, e-mail e senha.'); return; }
+    KMDB.createUser(payload).then(function(){ return startApp(); }).then(function(){ navigate('#/configuracoes'); showToast('Usuário criado.'); })
+      .catch(function(err){ showToast(err.message||'Falha ao criar usuário.'); });
+    return;
+  }
+  var toggleAdmin=e.target.closest('[data-toggle-admin]');
+  if(toggleAdmin){ var uu=user(toggleAdmin.getAttribute('data-toggle-admin'));
+    KMDB.updateProfile(uu.id,{is_admin:!uu.isAdmin}).then(function(){ return startApp(); }).then(function(){ navigate('#/configuracoes'); }).catch(function(){ showToast('Falha ao atualizar.'); }); return; }
+  var deact=e.target.closest('[data-deactivate-user]');
+  if(deact){ var du=deact.getAttribute('data-deactivate-user');
+    if(du===state.currentUserId){ showToast('Você não pode desativar a si mesmo.'); return; }
+    KMDB.updateProfile(du,{is_active:false}).then(function(){ return startApp(); }).then(function(){ navigate('#/configuracoes'); showToast('Usuário desativado.'); }).catch(function(){ showToast('Falha ao desativar.'); }); return; }
+  if(e.target.closest('#createAreaBtn')){
+    var subs=val('naSubcats').split(',').map(function(s){return s.trim();}).filter(Boolean);
+    if(!val('naName')){ showToast('Dê um nome à área.'); return; }
+    KMDB.insertArea({ name:val('naName'), color:val('naColor')||'#7A5AF8', flow:document.getElementById('naFlow').value, subcats:subs, sortOrder:AREAS.length+1 })
+      .then(function(){ return startApp(); }).then(function(){ navigate('#/configuracoes'); showToast('Área criada.'); })
+      .catch(function(){ showToast('Falha ao criar área (você é admin?).'); });
     return;
   }
 
