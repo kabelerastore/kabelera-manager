@@ -28,6 +28,14 @@ function showLoadError(){
     '<div class="app-error">Não foi possível carregar os dados.<br><br>' +
     '<button class="btn btn-primary" id="retryLoadBtn">Tentar de novo</button></div>';
 }
+async function refreshData(){
+  try{
+    var data = await KMDB.loadAll();
+    USERS=data.users; AREAS=data.areas; PROJECTS=data.projects; TASKS=data.tasks; NOTIFICATIONS=data.notifications;
+    if(data.me){ state.me=data.me; }
+    renderAll();
+  }catch(e){ /* mantém dados atuais; silencioso */ }
+}
 
 /* ======================= ICONS ======================= */
 function icon(name, size){
@@ -288,6 +296,7 @@ function onHashChange(){
   state.route = r;
   closeDrawer(); closeModal(); state.notifOpen=false;
   renderAll();
+  if(state.me){ refreshData(); }
 }
 
 /* ======================= RENDER: SHELL ======================= */
@@ -891,6 +900,7 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#forgotBtn')){ doForgot(); return; }
   if(e.target.closest('#logoutBtn')){ KMDB.signOut().then(function(){ location.hash=''; showLogin(); }); return; }
   if(e.target.closest('#retryLoadBtn')){ startApp(); return; }
+  if(e.target.closest('#refreshBtn')){ refreshData(); showToast('Atualizado.'); return; }
 
   var navBtn = e.target.closest('[data-nav]');
   if(navBtn){ navigate(navBtn.getAttribute('data-nav')); return; }
