@@ -209,7 +209,10 @@ function updateTaskField(taskId, field, value){
   t[field]=value;
   var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega'};
   pushHistory(t, labelMap[field]||field, field==='responsibleId'?userLabel(old):(old||'—'), field==='responsibleId'?userLabel(value):(value||'—'));
-  persistTask(t, prev);
+  var p = persistTask(t, prev);
+  if(field==='responsibleId' && value && value!==state.currentUserId){
+    p.then(function(ok){ if(ok){ KMDB.insertNotifications([{ user_id:value, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+t.title+'".' }]).catch(function(){}); } });
+  }
 }
 function addChecklistItem(taskId, text){
   if(!text.trim()) return;
@@ -272,6 +275,9 @@ function createTask(data){
   t.history.push({id:uid('h'), field:'criação', from:null, to:'Tarefa criada', at:nowISOTime(), by:state.currentUserId});
   KMDB.insertTask(t).then(function(saved){
     TASKS.push(saved); renderContent();
+    if(saved.responsibleId && saved.responsibleId !== state.currentUserId){
+      KMDB.insertNotifications([{ user_id:saved.responsibleId, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+saved.title+'".' }]).catch(function(){});
+    }
   }).catch(function(){ showToast('Não foi possível criar a tarefa — tente de novo.'); });
   return t;
 }
@@ -415,7 +421,7 @@ function viewDashboard(){
   var byUser = USERS.map(function(u){ return {label:u.name.split(' ')[0], value:TASKS.filter(function(t){return t.responsibleId===u.id && !isFinal(t);}).length}; })
     .filter(function(d){return d.value>0;}).sort(function(a,b){return b.value-a.value;});
 
-  var banner = state.bannerDismissed ? '' : '<div class="banner">'+icon('info',16)+'<span>Protótipo navegável com dados fictícios em memória — dá para arrastar cards, aprovar tarefas, criar tarefas e comentar; nada fica salvo entre sessões ainda.</span><button data-dismiss-banner aria-label="Fechar">'+icon('close',14)+'</button></div>';
+  var banner = '';
 
   return banner + '<div class="stat-grid">' +
     statTile('Tarefas abertas', open.length) +
@@ -1048,7 +1054,7 @@ function showLogin(message){
   document.getElementById('app').style.display='none';
   var gate = document.getElementById('gateScreen');
   gate.classList.add('show');
-  gate.innerHTML = '<div class="login-card"><h1>Kabelera Manager</h1><p class="sub">Entre com seu e-mail e senha.</p>' +
+  gate.innerHTML = '<div class="login-card"><div class="login-logo"><img src="assets/logo.png" alt="Kabelera"></div><h1>Kabelera Manager</h1><p class="sub">Entre com seu e-mail e senha.</p>' +
     '<div class="field-row"><label>E-mail</label><input type="email" id="loginEmail" autocomplete="username"></div>' +
     '<div class="field-row"><label>Senha</label><input type="password" id="loginPassword" autocomplete="current-password"></div>' +
     '<button class="btn btn-primary" id="loginBtn" style="width:100%;justify-content:center;">Entrar</button>' +
@@ -1081,9 +1087,27 @@ async function startApp(){
   onHashChange();
 }
 
+function showFatal(e){
+  var appEl=document.getElementById('app'); if(appEl) appEl.style.display='none';
+  var gate = document.getElementById('gateScreen');
+  gate.classList.add('show');
+  gate.innerHTML = '<div class="login-card"><h1>Erro ao iniciar</h1>' +
+    '<p class="sub">O app não conseguiu iniciar. Detalhe técnico abaixo:</p>' +
+    '<div class="login-error" style="min-height:auto;white-space:pre-wrap;">'+esc(String((e && e.stack) || (e && e.message) || e))+'</div></div>';
+}
 (async function init(){
-  var session = await KMDB.getSession();
-  if(session) await startApp();
-  else showLogin();
+  try{
+    if(!window.supabase || !window.supabase.createClient){
+      throw new Error('A biblioteca do Supabase não carregou (conexão ou bloqueador de anúncios?).');
+    }
+    if(!window.KM_CONFIG || !window.KM_CONFIG.url){
+      throw new Error('config.js não carregou (faltam as chaves do projeto).');
+    }
+    var session = await KMDB.getSession();
+    if(session) await startApp();
+    else showLogin();
+  }catch(e){
+    showFatal(e);
+  }
 })();
 })();

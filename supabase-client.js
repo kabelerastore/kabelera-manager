@@ -5,6 +5,12 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Referência ao objeto global (window no browser, globalThis no Node) usada
+  // pelas funções de runtime abaixo (client, resetPassword, createUser).
+  var root = (typeof self !== 'undefined') ? self
+           : (typeof globalThis !== 'undefined') ? globalThis
+           : (typeof window !== 'undefined') ? window : this;
+
   // ---- mappers puros ----
   function taskFromRow(r) {
     return {
