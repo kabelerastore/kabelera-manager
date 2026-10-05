@@ -602,6 +602,28 @@ function ganttHTML(a, tasks){
   return '<div class="gantt-wrap"><div class="gantt-today" style="left:'+(160+todayLeft)+'px"></div>'+rows+'</div>';
 }
 
+/* ---- Timeline ---- */
+function timelineHTML(a, tasks){
+  var events=[];
+  tasks.forEach(function(t){
+    (t.history||[]).forEach(function(h){
+      events.push({ at:h.at, taskId:t.id, title:t.title,
+        text:'<b>'+esc(userLabel(h.by))+'</b> alterou '+esc(h.field)+(h.from?' de "'+esc(h.from)+'"':'')+' para "'+esc(h.to)+'"' });
+    });
+    (t.comments||[]).forEach(function(c){
+      events.push({ at:c.createdAt, taskId:t.id, title:t.title,
+        text:'<b>'+esc(userLabel(c.authorId))+'</b> comentou: '+mentionify(c.text) });
+    });
+  });
+  if(!events.length) return '<div class="empty-state">Nenhuma atividade registrada nesta área ainda.</div>';
+  events.sort(function(x,y){ return (y.at||'').localeCompare(x.at||''); });
+  return '<div class="timeline">' + events.slice(0,200).map(function(ev){
+    return '<div class="tl-item" data-open-task="'+ev.taskId+'"><span class="tl-dot"></span>' +
+      '<div class="tl-body"><div class="tl-text">'+ev.text+'</div>' +
+      '<div class="tl-meta">'+esc(ev.title)+' · '+fmtDateTime(ev.at)+'</div></div></div>';
+  }).join('') + '</div>';
+}
+
 /* ---- Projects ---- */
 function viewProjectsList(){
   return '<div class="section-head"><h2>Todos os projetos</h2><span class="count">'+PROJECTS.length+'</span></div><div class="projects-grid">' + PROJECTS.map(projectCardHTML).join('') + '</div>';

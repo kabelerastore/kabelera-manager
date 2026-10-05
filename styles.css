@@ -363,3 +363,12 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--status-critical);}
 .gantt-bar{position:absolute; top:2px; height:20px; border-radius:6px; background:rgba(var(--dep-rgb),.9); color:var(--dep-text-on-tint); font-size:10.5px; font-weight:700; display:flex; align-items:center; gap:4px; padding:0 7px; cursor:pointer; overflow:hidden; white-space:nowrap;}
 .gantt-bar.is-overdue{outline:2px solid var(--status-critical); outline-offset:-2px;}
 .gantt-today{position:absolute; top:0; bottom:0; width:2px; background:var(--accent); z-index:2; pointer-events:none;}
+
+/* Timeline */
+.timeline{border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface); padding:6px 0;}
+.tl-item{display:flex; gap:10px; padding:11px 16px; border-bottom:1px solid var(--border); cursor:pointer;}
+.tl-item:last-child{border-bottom:none;}
+.tl-item:hover{background:var(--surface-2);}
+.tl-dot{width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:5px; flex:none;}
+.tl-text{font-size:13px; line-height:1.5;}
+.tl-meta{font-size:11px; color:var(--text-muted); margin-top:2px;}
