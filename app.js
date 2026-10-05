@@ -128,8 +128,15 @@ function lastActivityISO(t){
 function isStalled(t){ if(isFinal(t)) return false; var last=lastActivityISO(t); var days=(new Date(TODAY_ISO)-new Date(last))/86400000; return days>=7; }
 function isAwaitingApproval(t){ return t.status==='Aprovação'; }
 var priorityRank = KM.priorityRank, priorityClass = KM.priorityClass;
-function depStyle(areaId){ var a=area(areaId); return 'style="--dep-rgb:var(--dep-'+a.dep+'-rgb)"'; }
-function depColorVar(areaId){ var a=area(areaId); return 'var(--dep-'+a.dep+')'; }
+function depStyle(areaId){ var a=area(areaId); return 'style="--dep-rgb:'+hexOrTokenRGB(a)+'"'; }
+function depColorVar(areaId){ return areaColorCSS(area(areaId)); }
+function hexOrTokenRGB(a){
+  var tokens={marketing:'237,161,0',design:'232,123,164',admin:'235,104,52',financeiro:'27,175,122',comercial:'42,120,214'};
+  if(tokens[a.color]) return 'var(--dep-'+a.color+'-rgb)';
+  // hex -> "r,g,b"
+  var h=a.color.replace('#',''); if(h.length===3){ h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
+  var n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255].join(',');
+}
 function taskById(id){ return TASKS.find(function(t){return t.id===id;}); }
 function tasksForArea(areaId){ return TASKS.filter(function(t){return t.areaId===areaId;}); }
 function tasksForProject(projectId){ return TASKS.filter(function(t){return t.projectId===projectId;}); }
@@ -394,7 +401,7 @@ function viewDashboard(){
   var approval = TASKS.filter(isAwaitingApproval);
   var activeProjects = PROJECTS.filter(function(p){return p.status!=='Concluído';});
 
-  var byArea = AREAS.map(function(a){ return {label:a.name, value:tasksForArea(a.id).filter(function(t){return !isFinal(t);}).length, color:'var(--dep-'+a.dep+')'}; });
+  var byArea = AREAS.map(function(a){ return {label:a.name, value:tasksForArea(a.id).filter(function(t){return !isFinal(t);}).length, color:areaColorCSS(a)}; });
   var byUser = USERS.map(function(u){ return {label:u.name.split(' ')[0], value:TASKS.filter(function(t){return t.responsibleId===u.id && !isFinal(t);}).length}; })
     .filter(function(d){return d.value>0;}).sort(function(a,b){return b.value-a.value;});
 
@@ -574,7 +581,7 @@ function viewProjectDetail(id){
     '</div>' +
     '<div class="section-head"><h2>Tarefas por área</h2><span class="count">independente de quem está vendo</span></div>' +
     (Object.keys(byArea).length ? AREAS.filter(function(a){return byArea[a.id];}).map(function(a){
-      return '<div style="margin-bottom:18px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="nav-dot" style="background:var(--dep-'+a.dep+')"></span><b style="font-size:13px;">'+a.name+'</b><span class="count">'+byArea[a.id].length+(byArea[a.id].length===1?' tarefa':' tarefas')+'</span></div>' + listTableHTML(byArea[a.id]) + '</div>';
+      return '<div style="margin-bottom:18px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span class="nav-dot" style="background:'+areaColorCSS(a)+'"></span><b style="font-size:13px;">'+a.name+'</b><span class="count">'+byArea[a.id].length+(byArea[a.id].length===1?' tarefa':' tarefas')+'</span></div>' + listTableHTML(byArea[a.id]) + '</div>';
     }).join('') : '<div class="empty-state">Nenhuma tarefa vinculada a este projeto ainda.</div>');
 }
 
@@ -638,7 +645,7 @@ function viewTeam(){
 function viewSettings(){
   var html = '<div class="settings-block"><h3>Áreas e subcategorias</h3><div class="card" style="padding:6px 16px;">' +
     AREAS.map(function(a){
-      return '<div class="area-row"><span class="area-swatch" style="background:var(--dep-'+a.dep+')"></span><div><b style="font-size:13px;">'+a.name+'</b><div class="chip-row">'+a.subcats.map(function(s){return '<span class="tag">'+s+'</span>';}).join('')+'</div></div></div>';
+      return '<div class="area-row"><span class="area-swatch" style="background:'+areaColorCSS(a)+'"></span><div><b style="font-size:13px;">'+a.name+'</b><div class="chip-row">'+a.subcats.map(function(s){return '<span class="tag">'+s+'</span>';}).join('')+'</div></div></div>';
     }).join('') + '</div></div>' +
     '<div class="settings-block"><h3>Fluxos de status por área</h3><div class="card" style="padding:14px 16px;">' +
     AREAS.map(function(a){
@@ -740,7 +747,10 @@ function drawerTabBody(t,a){
 
 /* ======================= NEW TASK MODAL ======================= */
 function openModal(areaId){
-  state.modalOpen = true; state.modalArea = areaId || (state.route.name==='area' ? state.route.params.areaId : 'marketing');
+  state.modalOpen = true;
+  var pick = areaId || (state.route.name==='area' ? state.route.params.areaId : null);
+  if(!area(pick)) pick = AREAS[0] && AREAS[0].id;
+  state.modalArea = pick;
   renderModal();
 }
 function closeModal(){ state.modalOpen=false; document.getElementById('modal-root') && document.getElementById('modal-root').remove(); }
