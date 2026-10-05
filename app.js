@@ -482,7 +482,9 @@ function viewArea(areaId, view){
   if(view==='kanban') html += kanbanHTML(a, tasks);
   else if(view==='lista') html += listTableHTML(tasks);
   else if(view==='calendario') html += calendarHTML(tasks, 'area:'+areaId);
-  else html += '<div class="empty-state">'+icon('clock',26)+'<div style="margin-top:10px;">'+labels[view]+' chega na próxima fase (v2) — por enquanto acompanhe pelo Kanban, Lista ou Calendário.</div></div>';
+  else if(view==='gantt') html += ganttHTML(a, tasks);
+  else if(view==='timeline') html += timelineHTML(a, tasks);
+  else html += '<div class="empty-state">Visualização indisponível.</div>';
   return html;
 }
 function filtersBarHTML(key, a){
@@ -560,6 +562,44 @@ function calendarHTML(tasks, key){
         (dayTasks.length>3 ? '<div class="cal-more">+'+(dayTasks.length-3)+' mais</div>' : '') +
       '</div>';
     }).join('') + '</div>';
+}
+
+/* ---- Gantt ---- */
+function ganttHTML(a, tasks){
+  var dated = tasks.filter(function(t){ return t.dueDate; });
+  if(!dated.length) return '<div class="empty-state">Sem tarefas com prazo para exibir no Gantt.</div>';
+  // janela de datas
+  var starts = dated.map(function(t){ return t.startDate || KM.addDaysISO(t.dueDate,-3); });
+  var min = starts.concat(dated.map(function(t){return t.dueDate;})).sort()[0];
+  var max = dated.map(function(t){return t.dueDate;}).concat([TODAY_ISO]).sort().pop();
+  // garante que "hoje" cabe
+  min = (min < TODAY_ISO) ? min : TODAY_ISO;
+  max = (max > TODAY_ISO) ? max : TODAY_ISO;
+  var dayMs=86400000;
+  var minD=new Date(min+'T00:00:00'), maxD=new Date(max+'T00:00:00');
+  var totalDays=Math.round((maxD-minD)/dayMs)+1;
+  var colW=26; // px por dia
+  function offsetDays(iso){ return Math.round((new Date(iso+'T00:00:00')-minD)/dayMs); }
+  // agrupar por subcategoria
+  var bySub={}; dated.forEach(function(t){ (bySub[t.subcategory||'Sem subcategoria']=bySub[t.subcategory||'Sem subcategoria']||[]).push(t); });
+  var todayLeft = offsetDays(TODAY_ISO)*colW;
+  var rows='';
+  Object.keys(bySub).forEach(function(sub){
+    rows += '<div class="gantt-group">'+esc(sub)+'</div>';
+    bySub[sub].forEach(function(t){
+      var s=t.startDate || KM.addDaysISO(t.dueDate,-3);
+      var left=offsetDays(s)*colW;
+      var width=Math.max(colW, (offsetDays(t.dueDate)-offsetDays(s)+1)*colW);
+      var hasDep=(t.dependencies&&t.dependencies.length);
+      rows += '<div class="gantt-row"><div class="gantt-label" data-open-task="'+t.id+'">'+esc(t.title)+'</div>' +
+        '<div class="gantt-track" style="width:'+(totalDays*colW)+'px">' +
+          '<div class="gantt-bar'+(isOverdue(t)?' is-overdue':'')+'" '+depStyle(t.areaId)+' style="left:'+left+'px;width:'+width+'px;" data-open-task="'+t.id+'">' +
+            (hasDep?icon('link',12):'') + '<span>'+fmtDate(t.dueDate)+'</span>' +
+          '</div>' +
+        '</div></div>';
+    });
+  });
+  return '<div class="gantt-wrap"><div class="gantt-today" style="left:'+(160+todayLeft)+'px"></div>'+rows+'</div>';
 }
 
 /* ---- Projects ---- */
