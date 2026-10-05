@@ -1,0 +1,10 @@
+{
+  "name": "kabelera-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestao de projetos, tarefas e equipe da Kabelera",
+  "scripts": {
+    "test": "node --test",
+    "serve": "npx --yes serve -l 5173 ."
+  }
+}
