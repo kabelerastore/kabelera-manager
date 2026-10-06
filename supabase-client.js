@@ -100,6 +100,7 @@
     return { url: pub.data.publicUrl, path: path };
   }
   async function insertProject(p) { return projectFromRow(must(await client().from('projects').insert(projectToRow(p)).select().single())); }
+  async function setProjectActive(id, active) { return must(await client().from('projects').update({ is_active: active }).eq('id', id)); }
   async function updateProject(id, p) { return projectFromRow(must(await client().from('projects').update(projectToRow(p)).eq('id', id).select().single())); }
   async function insertNotifications(rows) { return must(await client().from('notifications').insert(rows)); }
   async function markNotifRead(id) { return must(await client().from('notifications').update({ read: true }).eq('id', id)); }
@@ -128,7 +129,7 @@
     areaFromRow: areaFromRow, profileFromRow: profileFromRow, notifFromRow: notifFromRow,
     signIn: signIn, signOut: signOut, getSession: getSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
     loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, uploadFile: uploadFile, insertProject: insertProject,
-    updateProject: updateProject, insertNotifications: insertNotifications, markNotifRead: markNotifRead,
+    updateProject: updateProject, setProjectActive: setProjectActive, insertNotifications: insertNotifications, markNotifRead: markNotifRead,
     insertArea: insertArea, updateArea: updateArea, updateProfile: updateProfile, createUser: createUser
   };
 });

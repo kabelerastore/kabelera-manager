@@ -286,6 +286,14 @@ function createTask(data){
   }).catch(function(){ showToast('Não foi possível criar a tarefa — tente de novo.'); });
   return t;
 }
+function deleteProject(id){
+  var p=project(id); if(!p) return;
+  if(!window.confirm('Excluir o projeto "'+p.name+'"? As tarefas dele continuam existindo, apenas sem projeto vinculado.')) return;
+  KMDB.setProjectActive(id, false).then(function(){
+    PROJECTS = PROJECTS.filter(function(x){ return x.id!==id; });
+    navigate('#/projetos'); showToast('Projeto excluído.');
+  }).catch(function(){ showToast('Não foi possível excluir o projeto.'); });
+}
 function deleteTask(taskId){
   var t=taskById(taskId); if(!t) return;
   if(!window.confirm('Excluir a tarefa "'+t.title+'"? Ela sai das listas e dos quadros (o histórico fica preservado no banco).')) return;
@@ -668,7 +676,7 @@ function viewProjectDetail(id){
   var pct = computeProjectProgress(p);
   var byArea = {};
   ts.forEach(function(t){ (byArea[t.areaId]=byArea[t.areaId]||[]).push(t); });
-  return '<div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn btn-ghost btn-sm" data-nav="#/projetos">'+icon('chevronLeft',14)+'<span>Todos os projetos</span></button><button class="btn btn-ghost btn-sm" data-edit-project="'+p.id+'">Editar projeto</button></div>' +
+  return '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" data-nav="#/projetos">'+icon('chevronLeft',14)+'<span>Todos os projetos</span></button><button class="btn btn-ghost btn-sm" data-edit-project="'+p.id+'">Editar projeto</button><button class="btn btn-danger-ghost btn-sm" data-delete-project="'+p.id+'">Excluir projeto</button></div>' +
     '<div class="card" style="padding:18px; margin-bottom:20px;">' +
       '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;"><div style="flex:1;min-width:220px;"><h2 style="margin:0 0 6px;font-size:18px;">'+esc(p.name)+'</h2><div style="color:var(--text-secondary);font-size:13px;line-height:1.5;">'+esc(p.description)+'</div></div><span class="tag">'+esc(p.status)+'</span></div>' +
       '<div class="progress-track" style="margin-top:16px;"><div class="progress-fill" style="width:'+pct+'%"></div></div>' +
@@ -822,7 +830,7 @@ function renderDrawer(){
   var a = area(t.areaId);
   var overdue = isOverdue(t);
   var head = '<div class="drawer-head"><div class="drawer-top-row"><h2>'+esc(t.title)+'</h2><button class="drawer-close" id="drawerCloseBtn">'+icon('close',16)+'</button></div>' +
-    '<div class="drawer-tags"><span class="pill dep-pill" '+depStyle(t.areaId)+'>'+a.name+'</span><span class="tag">'+esc(t.subcategory)+'</span><span class="pill '+priorityClass(t.priority)+'">'+t.priority+'</span><span class="tag">'+esc(t.status)+'</span>' + (overdue?'<span class="pill overdue-chip">Atrasada</span>':'') + (t.projectId?'<span class="tag" data-open-project="'+t.projectId+'" style="cursor:pointer;color:var(--accent)">'+esc(project(t.projectId).name)+'</span>':'') + '</div>' +
+    '<div class="drawer-tags"><span class="pill dep-pill" '+depStyle(t.areaId)+'>'+a.name+'</span><span class="tag">'+esc(t.subcategory)+'</span><span class="pill '+priorityClass(t.priority)+'">'+t.priority+'</span><span class="tag">'+esc(t.status)+'</span>' + (overdue?'<span class="pill overdue-chip">Atrasada</span>':'') + (t.projectId && project(t.projectId)?'<span class="tag" data-open-project="'+t.projectId+'" style="cursor:pointer;color:var(--accent)">'+esc(project(t.projectId).name)+'</span>':'') + '</div>' +
     (t.status==='Aprovação' ? '<div class="approve-row"><button class="btn btn-primary btn-sm" data-approve="'+t.id+'">'+icon('thumbUp',14)+'<span>Aprovar</span></button><button class="btn btn-danger-ghost btn-sm" data-reject="'+t.id+'">'+icon('xCircle',14)+'<span>Reprovar</span></button></div>' : '') +
     '</div>';
   var tabs = '<div class="drawer-tabs">' + DRAWER_TABS.map(function(tb){
@@ -1005,6 +1013,8 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#newProjectBtn')){ openProjectModal(null); return; }
   var editProj = e.target.closest('[data-edit-project]');
   if(editProj){ openProjectModal(editProj.getAttribute('data-edit-project')); return; }
+  var delProj = e.target.closest('[data-delete-project]');
+  if(delProj){ deleteProject(delProj.getAttribute('data-delete-project')); return; }
   if(e.target.closest('#projectModalCloseBtn') || e.target.closest('#projectCancelBtn') || e.target===document.getElementById('project-modal-root')){ closeProjectModal(); return; }
   if(e.target.closest('#projectSaveBtn')){
     var pname=val('pName'); if(!pname){ showToast('Dê um nome ao projeto.'); return; }
