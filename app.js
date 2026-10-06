@@ -255,11 +255,14 @@ async function addComment(taskId, text){
   var ok = await persistTask(t, prev);
   if(ok && notifRows.length){ KMDB.insertNotifications(notifRows).catch(function(){}); showToast('Notificação enviada.'); }
 }
-function addAttachment(taskId, name){
-  if(!name.trim()) return;
-  var t=taskById(taskId); var prev = snapshot(t);
-  t.attachments.push({id:uid('at'), name:name.trim(), size:(Math.round(Math.random()*4000)/1000).toFixed(1)+' MB', uploadedBy:state.currentUserId, createdAt:nowISOTime()});
-  persistTask(t, prev);
+function uploadAttachment(taskId, file){
+  var t=taskById(taskId); if(!t) return;
+  showToast('Enviando anexo...');
+  KMDB.uploadFile(file).then(function(res){
+    var prev = snapshot(t);
+    t.attachments.push({id:uid('at'), name:file.name, url:res.url, path:res.path, size:(file.size/1048576).toFixed(2)+' MB', uploadedBy:state.currentUserId, createdAt:nowISOTime()});
+    persistTask(t, prev, 'Anexo enviado.').then(function(){ if(state.drawerTaskId) renderDrawer(); });
+  }).catch(function(){ showToast('Falha ao enviar o anexo (o armazenamento está configurado?).'); });
 }
 function addLink(taskId, url, label){
   if(!url.trim()) return;
@@ -862,8 +865,11 @@ function drawerTabBody(t,a){
       '<div class="field-row" style="margin-top:12px;"><label>Adicionar comentário (use @Nome para mencionar)</label><textarea id="newCommentInput" rows="3" placeholder="Escreva um comentário..."></textarea><div style="margin-top:8px;text-align:right;"><button class="btn btn-primary btn-sm" id="addCommentBtn">Comentar</button></div></div>';
   }
   if(state.drawerTab==='anexos'){
-    return (t.attachments.length? t.attachments.map(function(f){ return '<div class="attach-row"><div class="attach-icon">'+icon('paperclip',15)+'</div><div style="flex:1;"><div style="font-weight:600;">'+esc(f.name)+'</div><div style="color:var(--text-muted);font-size:11px;">'+f.size+' · enviado por '+userLabel(f.uploadedBy)+'</div></div></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhum anexo ainda.</div>') +
-      '<div class="add-row"><input type="text" id="newAttachInput" placeholder="nome-do-arquivo.pdf"><button class="btn btn-ghost btn-sm" id="addAttachBtn">Adicionar</button></div>';
+    return (t.attachments.length? t.attachments.map(function(f){
+      var nameHTML = f.url ? '<a href="'+esc(f.url)+'" target="_blank" rel="noopener" style="font-weight:600;">'+esc(f.name)+'</a>' : '<div style="font-weight:600;">'+esc(f.name)+'</div>';
+      return '<div class="attach-row"><div class="attach-icon">'+icon('paperclip',15)+'</div><div style="flex:1;">'+nameHTML+'<div style="color:var(--text-muted);font-size:11px;">'+esc(f.size||'')+' · enviado por '+esc(userLabel(f.uploadedBy))+'</div></div></div>';
+    }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhum anexo ainda.</div>') +
+      '<div class="add-row"><input type="file" id="newAttachFile"><button class="btn btn-ghost btn-sm" id="addAttachBtn">Enviar</button></div>';
   }
   if(state.drawerTab==='links'){
     return (t.links.length? t.links.map(function(l){ return '<div class="link-row">'+icon('link',15)+'<a href="'+esc(l.url)+'" target="_blank" rel="noopener" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(l.label)+'</a></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhum link ainda.</div>') +
@@ -968,7 +974,7 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#refreshBtn')){ refreshData(); showToast('Atualizado.'); return; }
 
   var navBtn = e.target.closest('[data-nav]');
-  if(navBtn){ navigate(navBtn.getAttribute('data-nav')); return; }
+  if(navBtn){ navigate(navBtn.getAttribute('data-nav')); if(state.sidebarOpen){ state.sidebarOpen=false; syncSidebar(); } return; }
 
   if(e.target.closest('#sidebarClose') || e.target.closest('#sidebarOverlay')){ state.sidebarOpen=false; syncSidebar(); return; }
   if(e.target.closest('#hamburgerBtn')){ state.sidebarOpen=true; syncSidebar(); return; }
@@ -1071,7 +1077,7 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#addChecklistBtn')){ var el=document.getElementById('newChecklistInput'); addChecklistItem(state.drawerTaskId, el.value); el.value=''; renderDrawer(); return; }
   if(e.target.closest('#addSubtaskBtn')){ var el2=document.getElementById('newSubtaskInput'); addSubtask(state.drawerTaskId, el2.value); el2.value=''; renderDrawer(); return; }
   if(e.target.closest('#addCommentBtn')){ var el3=document.getElementById('newCommentInput'); addComment(state.drawerTaskId, el3.value); el3.value=''; renderDrawer(); return; }
-  if(e.target.closest('#addAttachBtn')){ var el4=document.getElementById('newAttachInput'); addAttachment(state.drawerTaskId, el4.value); el4.value=''; renderDrawer(); return; }
+  if(e.target.closest('#addAttachBtn')){ var fi=document.getElementById('newAttachFile'); if(fi && fi.files && fi.files[0]){ uploadAttachment(state.drawerTaskId, fi.files[0]); } else { showToast('Escolha um arquivo primeiro.'); } return; }
   if(e.target.closest('#addLinkBtn')){ var lu=document.getElementById('newLinkUrl'), ll=document.getElementById('newLinkLabel'); addLink(state.drawerTaskId, lu.value, ll.value); lu.value=''; ll.value=''; renderDrawer(); return; }
 
   var areaViewBtn = e.target.closest('[data-area-view]');

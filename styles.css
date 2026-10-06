@@ -335,11 +335,22 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--status-critical);}
   .kcol{flex:0 0 78vw;}
   .field-two{grid-template-columns:1fr;}
   .modal{width:100%;}
+  .topbar{padding:12px 14px;}
+  .view-tabs{max-width:100%;}
+  .page-title{font-size:17px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 }
 @media (max-width:520px){
   .stat-grid{grid-template-columns:repeat(2,1fr);}
   .cal-day{min-height:64px;}
   .week-strip{grid-template-columns:1fr; }
+  .topbar{gap:8px;}
+  .page-sub{display:none;}
+  #newTaskBtn span{display:none;}
+  #newTaskBtn{padding:9px;}
+  .chart-grid{grid-template-columns:1fr;}
+  .projects-grid{grid-template-columns:1fr;}
+  .attn-grid{grid-template-columns:1fr;}
+  .team-grid{grid-template-columns:1fr;}
 }
 
 .gate-screen{position:fixed; inset:0; z-index:150; display:none; align-items:center; justify-content:center; background:var(--bg); padding:20px;}

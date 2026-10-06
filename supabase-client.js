@@ -91,6 +91,14 @@
   async function insertTask(task) { return taskFromRow(must(await client().from('tasks').insert(taskToRow(task)).select().single())); }
   async function updateTask(id, patchTask) { return taskFromRow(must(await client().from('tasks').update(taskToRow(patchTask)).eq('id', id).select().single())); }
   async function setTaskActive(id, active) { return must(await client().from('tasks').update({ is_active: active }).eq('id', id)); }
+  async function uploadFile(file) {
+    var safe = String(file.name).replace(/[^\w.\-]/g, '_');
+    var path = Date.now() + '_' + safe;
+    var up = await client().storage.from('anexos').upload(path, file);
+    if (up.error) throw up.error;
+    var pub = client().storage.from('anexos').getPublicUrl(path);
+    return { url: pub.data.publicUrl, path: path };
+  }
   async function insertProject(p) { return projectFromRow(must(await client().from('projects').insert(projectToRow(p)).select().single())); }
   async function updateProject(id, p) { return projectFromRow(must(await client().from('projects').update(projectToRow(p)).eq('id', id).select().single())); }
   async function insertNotifications(rows) { return must(await client().from('notifications').insert(rows)); }
@@ -119,7 +127,7 @@
     taskFromRow: taskFromRow, taskToRow: taskToRow, projectFromRow: projectFromRow, projectToRow: projectToRow,
     areaFromRow: areaFromRow, profileFromRow: profileFromRow, notifFromRow: notifFromRow,
     signIn: signIn, signOut: signOut, getSession: getSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
-    loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, insertProject: insertProject,
+    loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, uploadFile: uploadFile, insertProject: insertProject,
     updateProject: updateProject, insertNotifications: insertNotifications, markNotifRead: markNotifRead,
     insertArea: insertArea, updateArea: updateArea, updateProfile: updateProfile, createUser: createUser
   };
