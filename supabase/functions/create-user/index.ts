@@ -13,7 +13,8 @@ Deno.serve(async (req) => {
 
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SERVICE_ROLE_KEY")!;
+    // SUPABASE_SERVICE_ROLE_KEY é injetada automaticamente pelo Supabase (sem precisar configurar segredo).
+    const serviceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY"))!;
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     if (!token) return json({ ok: false, error: "Sem autenticação." }, 401);
