@@ -17,15 +17,17 @@ async function bootstrapData(){
       return true;
     }catch(e){
       if(attempt < 2) return tryLoad();
-      showLoadError();
+      showLoadError(e);
       return false;
     }
   }
   return tryLoad();
 }
-function showLoadError(){
+function showLoadError(e){
+  var detail = e ? String((e && e.message) || e) : '';
   document.getElementById('content').innerHTML =
     '<div class="app-error">Não foi possível carregar os dados.<br><br>' +
+    (detail ? '<div class="login-error" style="min-height:auto;white-space:pre-wrap;margin-bottom:14px;">'+esc(detail)+'</div>' : '') +
     '<button class="btn btn-primary" id="retryLoadBtn">Tentar de novo</button></div>';
 }
 async function refreshData(){
