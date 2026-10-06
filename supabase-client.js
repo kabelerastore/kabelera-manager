@@ -52,7 +52,7 @@
       isAdmin: !!r.is_admin, isActive: r.is_active,
       initials: String(r.name).trim().slice(0, 2).toUpperCase() };
   }
-  function notifFromRow(r) { return { id: r.id, userId: r.user_id, text: r.text, createdAt: r.created_at, read: r.read }; }
+  function notifFromRow(r) { return { id: r.id, userId: r.user_id, text: r.text, taskId: r.task_id || null, createdAt: r.created_at, read: r.read }; }
 
   // ---- runtime (browser) ----
   var sb = null;
@@ -82,7 +82,7 @@
     var areas = (must(await c.from('areas').select('*').eq('is_active', true).order('sort_order'))).map(areaFromRow);
     var users = (must(await c.from('profiles').select('*').eq('is_active', true).order('name'))).map(profileFromRow);
     var projects = (must(await c.from('projects').select('*').eq('is_active', true).order('created_at'))).map(projectFromRow);
-    var tasks = (must(await c.from('tasks').select('*').order('created_at'))).map(taskFromRow);
+    var tasks = (must(await c.from('tasks').select('*').eq('is_active', true).order('created_at'))).map(taskFromRow);
     var notifications = (must(await c.from('notifications').select('*').order('created_at', { ascending: false }))).map(notifFromRow);
     var me = users.find(function (u) { return u.id === meId; }) || null;
     return { areas: areas, users: users, projects: projects, tasks: tasks, notifications: notifications, me: me };
@@ -90,6 +90,7 @@
 
   async function insertTask(task) { return taskFromRow(must(await client().from('tasks').insert(taskToRow(task)).select().single())); }
   async function updateTask(id, patchTask) { return taskFromRow(must(await client().from('tasks').update(taskToRow(patchTask)).eq('id', id).select().single())); }
+  async function setTaskActive(id, active) { return must(await client().from('tasks').update({ is_active: active }).eq('id', id)); }
   async function insertProject(p) { return projectFromRow(must(await client().from('projects').insert(projectToRow(p)).select().single())); }
   async function updateProject(id, p) { return projectFromRow(must(await client().from('projects').update(projectToRow(p)).eq('id', id).select().single())); }
   async function insertNotifications(rows) { return must(await client().from('notifications').insert(rows)); }
@@ -118,7 +119,7 @@
     taskFromRow: taskFromRow, taskToRow: taskToRow, projectFromRow: projectFromRow, projectToRow: projectToRow,
     areaFromRow: areaFromRow, profileFromRow: profileFromRow, notifFromRow: notifFromRow,
     signIn: signIn, signOut: signOut, getSession: getSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
-    loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, insertProject: insertProject,
+    loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, insertProject: insertProject,
     updateProject: updateProject, insertNotifications: insertNotifications, markNotifRead: markNotifRead,
     insertArea: insertArea, updateArea: updateArea, updateProfile: updateProfile, createUser: createUser
   };

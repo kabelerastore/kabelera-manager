@@ -114,6 +114,8 @@ var state = {
   drawerTab:'detalhes',
   modalOpen:false,
   modalArea:'marketing',
+  projectModalOpen:false,
+  projectModalId:null,
   bannerDismissed:false,
   calMonthOffset:0,
   filters:{}, // per areaId key -> {responsavel, subcat, prioridade, prazo}
@@ -207,11 +209,11 @@ function updateTaskField(taskId, field, value){
   var old = t[field]; if(old===value) return;
   var prev = snapshot(t);
   t[field]=value;
-  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega'};
+  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega',startDate:'data de início',title:'título',description:'descrição'};
   pushHistory(t, labelMap[field]||field, field==='responsibleId'?userLabel(old):(old||'—'), field==='responsibleId'?userLabel(value):(value||'—'));
   var p = persistTask(t, prev);
   if(field==='responsibleId' && value && value!==state.currentUserId){
-    p.then(function(ok){ if(ok){ KMDB.insertNotifications([{ user_id:value, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+t.title+'".' }]).catch(function(){}); } });
+    p.then(function(ok){ if(ok){ KMDB.insertNotifications([{ user_id:value, task_id:t.id, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+t.title+'".' }]).catch(function(){}); } });
   }
 }
 function addChecklistItem(taskId, text){
@@ -247,7 +249,7 @@ async function addComment(taskId, text){
     if(u.id===state.currentUserId) return;
     var first=u.name.split(' ')[0];
     if(text.indexOf('@'+u.name)>-1 || text.indexOf('@'+first)>-1){
-      notifRows.push({ user_id:u.id, text:userLabel(state.currentUserId)+' mencionou você em "'+t.title+'".' });
+      notifRows.push({ user_id:u.id, task_id:t.id, text:userLabel(state.currentUserId)+' mencionou você em "'+t.title+'".' });
     }
   });
   var ok = await persistTask(t, prev);
@@ -270,16 +272,24 @@ function createTask(data){
   var t = mkTask({
     title:data.title, description:data.description||'', areaId:data.areaId, subcategory:data.subcategory,
     projectId:data.projectId||null, requesterId:data.requesterId, responsibleId:data.responsibleId,
-    priority:data.priority, status:FLOWS[a.flow][0], dueDate:data.dueDate||null, createdAt:TODAY_ISO
+    priority:data.priority, status:FLOWS[a.flow][0], startDate:data.startDate||null, dueDate:data.dueDate||null, createdAt:TODAY_ISO
   });
   t.history.push({id:uid('h'), field:'criação', from:null, to:'Tarefa criada', at:nowISOTime(), by:state.currentUserId});
   KMDB.insertTask(t).then(function(saved){
     TASKS.push(saved); renderContent();
     if(saved.responsibleId && saved.responsibleId !== state.currentUserId){
-      KMDB.insertNotifications([{ user_id:saved.responsibleId, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+saved.title+'".' }]).catch(function(){});
+      KMDB.insertNotifications([{ user_id:saved.responsibleId, task_id:saved.id, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+saved.title+'".' }]).catch(function(){});
     }
   }).catch(function(){ showToast('Não foi possível criar a tarefa — tente de novo.'); });
   return t;
+}
+function deleteTask(taskId){
+  var t=taskById(taskId); if(!t) return;
+  if(!window.confirm('Excluir a tarefa "'+t.title+'"? Ela sai das listas e dos quadros (o histórico fica preservado no banco).')) return;
+  KMDB.setTaskActive(taskId, false).then(function(){
+    TASKS = TASKS.filter(function(x){ return x.id!==taskId; });
+    closeDrawer(); renderContent(); showToast('Tarefa excluída.');
+  }).catch(function(){ showToast('Não foi possível excluir — tente de novo.'); });
 }
 
 /* ======================= ROUTER ======================= */
@@ -300,7 +310,7 @@ function navigate(hash){ location.hash = hash; }
 function onHashChange(){
   var r = parseHash();
   state.route = r;
-  closeDrawer(); closeModal(); state.notifOpen=false;
+  closeDrawer(); closeModal(); closeProjectModal(); state.notifOpen=false;
   renderAll();
   if(state.me){ refreshData(); }
 }
@@ -538,7 +548,7 @@ function kanbanCardHTML(t, a){
   return '<div class="kcard'+(overdue?' is-overdue':'')+'" draggable="true" data-task-card="'+t.id+'" data-open-task="'+t.id+'">' +
     '<div class="kcard-title">'+esc(t.title)+'</div>' +
     '<div class="kcard-tags"><span class="tag">'+esc(t.subcategory)+'</span><span class="pill '+priorityClass(t.priority)+'">'+t.priority+'</span>' + (overdue?'<span class="pill overdue-chip">Atrasada</span>':(isDueToday(t)?'<span class="pill due-today-chip">Hoje</span>':'')) + '</div>' +
-    '<div class="kcard-foot">' + avatarHTML(t.responsibleId) + '<span class="grow" style="font-size:11px;color:var(--text-muted)">'+fmtDate(t.dueDate)+'</span>' +
+    '<div class="kcard-foot">' + avatarHTML(t.responsibleId) + '<span class="grow" style="font-size:11px;color:var(--text-muted)">'+(t.startDate?fmtDate(t.startDate)+' → ':'')+fmtDate(t.dueDate)+'</span>' +
     '<select data-move-task="'+t.id+'" aria-label="Mover para">' + FLOWS[a.flow].map(function(c){return '<option value="'+esc(c)+'"'+(c===t.status?' selected':'')+'>'+c+'</option>';}).join('') + '</select>' +
     '</div></div>';
 }
@@ -641,7 +651,12 @@ function timelineHTML(a, tasks){
 
 /* ---- Projects ---- */
 function viewProjectsList(){
-  return '<div class="section-head"><h2>Todos os projetos</h2><span class="count">'+PROJECTS.length+'</span></div><div class="projects-grid">' + PROJECTS.map(projectCardHTML).join('') + '</div>';
+  var head = '<div class="section-head"><h2>Todos os projetos</h2><span class="count">'+PROJECTS.length+'</span>' +
+    '<button class="btn btn-primary btn-sm" id="newProjectBtn" style="margin-left:auto;">'+icon('plus',14)+'<span>Novo projeto</span></button></div>';
+  if(!PROJECTS.length){
+    return head + '<div class="empty-state">Nenhum projeto ainda. Clique em "Novo projeto" para criar o primeiro.</div>';
+  }
+  return head + '<div class="projects-grid">' + PROJECTS.map(projectCardHTML).join('') + '</div>';
 }
 function viewProjectDetail(id){
   var p = project(id);
@@ -650,7 +665,7 @@ function viewProjectDetail(id){
   var pct = computeProjectProgress(p);
   var byArea = {};
   ts.forEach(function(t){ (byArea[t.areaId]=byArea[t.areaId]||[]).push(t); });
-  return '<button class="btn btn-ghost btn-sm" data-nav="#/projetos" style="margin-bottom:14px;">'+icon('chevronLeft',14)+'<span>Todos os projetos</span></button>' +
+  return '<div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn btn-ghost btn-sm" data-nav="#/projetos">'+icon('chevronLeft',14)+'<span>Todos os projetos</span></button><button class="btn btn-ghost btn-sm" data-edit-project="'+p.id+'">Editar projeto</button></div>' +
     '<div class="card" style="padding:18px; margin-bottom:20px;">' +
       '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;"><div style="flex:1;min-width:220px;"><h2 style="margin:0 0 6px;font-size:18px;">'+esc(p.name)+'</h2><div style="color:var(--text-secondary);font-size:13px;line-height:1.5;">'+esc(p.description)+'</div></div><span class="tag">'+esc(p.status)+'</span></div>' +
       '<div class="progress-track" style="margin-top:16px;"><div class="progress-fill" style="width:'+pct+'%"></div></div>' +
@@ -739,10 +754,11 @@ function viewSettings(){
 function adminUsersBlock(){
   return '<div class="settings-block"><h3>Usuários (admin)</h3><div class="card" style="padding:14px 16px;">' +
     USERS.map(function(u){
-      return '<div class="area-row"><div style="flex:1;"><b style="font-size:13px;">'+esc(u.name)+'</b> '+
-        (u.isAdmin?'<span class="tag">admin</span>':'')+'<div class="role">'+esc(u.roleLabel)+'</div></div>' +
+      return '<div class="area-row" style="flex-wrap:wrap;gap:6px;"><div style="flex:1;min-width:160px;"><b style="font-size:13px;">'+esc(u.name)+'</b> '+
+        (u.isAdmin?'<span class="tag">admin</span>':'')+
+        '<div style="display:flex;gap:6px;margin-top:4px;"><input type="text" id="role_'+u.id+'" value="'+esc(u.roleLabel)+'" placeholder="Função" style="font-size:12px;padding:4px 8px;"><button class="btn btn-ghost btn-sm" data-save-role="'+u.id+'">Salvar função</button></div></div>' +
         '<button class="btn btn-ghost btn-sm" data-toggle-admin="'+u.id+'">'+(u.isAdmin?'Rebaixar':'Tornar admin')+'</button>' +
-        '<button class="btn btn-danger-ghost btn-sm" data-deactivate-user="'+u.id+'">Desativar</button></div>';
+        '<button class="btn btn-danger-ghost btn-sm" data-deactivate-user="'+u.id+'">Remover</button></div>';
     }).join('') +
     '<div style="margin-top:14px;"><b style="font-size:12.5px;">Novo usuário</b>' +
     '<div class="field-two" style="margin-top:8px;"><div class="field-row"><label>Nome</label><input id="nuName"></div>' +
@@ -754,7 +770,17 @@ function adminUsersBlock(){
     '</div></div>';
 }
 function adminAreasBlock(){
-  return '<div class="settings-block"><h3>Nova área (admin)</h3><div class="card" style="padding:14px 16px;">' +
+  var existing = '<div class="settings-block"><h3>Áreas existentes (admin)</h3><div class="card" style="padding:14px 16px;">' +
+    AREAS.map(function(a){
+      return '<div class="area-row" style="flex-wrap:wrap;gap:6px;">' +
+        '<input type="text" id="aname_'+a.id+'" value="'+esc(a.name)+'" style="font-size:12px;padding:4px 8px;max-width:140px;" title="Nome">' +
+        '<input type="text" id="acolor_'+a.id+'" value="'+esc(a.color)+'" style="font-size:12px;padding:4px 8px;max-width:90px;" title="Cor (token ou hex)">' +
+        '<input type="text" id="asubs_'+a.id+'" value="'+esc((a.subcats||[]).join(', '))+'" placeholder="Subcategorias (vírgula)" style="font-size:12px;padding:4px 8px;flex:1;min-width:160px;">' +
+        '<button class="btn btn-ghost btn-sm" data-save-area="'+a.id+'">Salvar</button>' +
+        '<button class="btn btn-danger-ghost btn-sm" data-remove-area="'+a.id+'">Remover</button>' +
+      '</div>';
+    }).join('') + '</div></div>';
+  return existing + '<div class="settings-block"><h3>Nova área (admin)</h3><div class="card" style="padding:14px 16px;">' +
     '<div class="field-two"><div class="field-row"><label>Nome</label><input id="naName"></div>' +
     '<div class="field-row"><label>Cor (hex)</label><input id="naColor" type="text" value="#7A5AF8"></div></div>' +
     '<div class="field-row"><label>Fluxo</label><select id="naFlow">' +
@@ -804,11 +830,13 @@ function renderDrawer(){
 }
 function drawerTabBody(t,a){
   if(state.drawerTab==='detalhes'){
-    return '<div class="desc-text" style="margin-bottom:16px;">'+esc(t.description||'Sem descrição.')+'</div>' +
+    return '<div class="field-row"><label>Título</label><input type="text" data-field="title" value="'+esc(t.title)+'"></div>' +
+      '<div class="field-row"><label>Descrição</label><textarea data-field="description" rows="3" placeholder="Sem descrição.">'+esc(t.description||'')+'</textarea></div>' +
       '<div class="field-two">' +
       '<div class="field-row"><label>Responsável</label><select data-field="responsibleId">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===t.responsibleId?' selected':'')+'>'+u.name+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Prioridade</label><select data-field="priority">'+['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(p===t.priority?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Status</label><select data-field="status">'+FLOWS[a.flow].map(function(c){return '<option value="'+esc(c)+'"'+(c===t.status?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>' +
+      '<div class="field-row"><label>Data de início</label><input type="date" data-field="startDate" value="'+(t.startDate||'')+'"></div>' +
       '<div class="field-row"><label>Prazo de entrega</label><input type="date" data-field="dueDate" value="'+(t.dueDate||'')+'"></div>' +
       '</div>' +
       '<div class="field-row"><label>Solicitante</label><div style="font-size:13px;">'+userLabel(t.requesterId)+'</div></div>' +
@@ -816,7 +844,8 @@ function drawerTabBody(t,a){
       '<div class="field-two">' +
       '<div class="field-row"><label>Criada em</label><div style="font-size:13px;">'+fmtDateLong(t.createdAt)+'</div></div>' +
       '<div class="field-row"><label>Concluída em</label><div style="font-size:13px;">'+(t.completedAt?fmtDateLong(t.completedAt):'—')+'</div></div>' +
-      '</div>';
+      '</div>' +
+      '<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px;"><button class="btn btn-danger-ghost btn-sm" data-delete-task="'+t.id+'">'+icon('close',14)+'<span>Excluir tarefa</span></button></div>';
   }
   if(state.drawerTab==='checklist'){
     var doneCt = t.checklist.filter(function(c){return c.done;}).length;
@@ -881,9 +910,10 @@ function renderModal(){
         '<div class="field-row"><label>Responsável</label><select id="mResponsible">'+USERS.map(function(u){return '<option value="'+u.id+'">'+u.name+'</option>';}).join('')+'</select></div>' +
       '</div>' +
       '<div class="field-two">' +
-        '<div class="field-row"><label>Prioridade</label><select id="mPriority">'+['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(p==='Média'?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>' +
+        '<div class="field-row"><label>Data de início</label><input type="date" id="mStart"></div>' +
         '<div class="field-row"><label>Prazo de entrega</label><input type="date" id="mDue"></div>' +
       '</div>' +
+      '<div class="field-row"><label>Prioridade</label><select id="mPriority">'+['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(p==='Média'?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>' +
     '</div>' +
     '<div class="modal-foot"><button class="btn btn-ghost" id="modalCancelBtn">Cancelar</button><button class="btn btn-primary" id="modalSaveBtn">Criar tarefa</button></div>' +
   '</div>';
@@ -891,6 +921,35 @@ function renderModal(){
   document.getElementById('mArea').addEventListener('change', function(){
     state.modalArea = this.value; renderModal();
   });
+}
+
+/* ======================= PROJECT MODAL ======================= */
+function openProjectModal(id){ state.projectModalOpen=true; state.projectModalId=id||null; renderProjectModal(); }
+function closeProjectModal(){ state.projectModalOpen=false; var el=document.getElementById('project-modal-root'); if(el) el.remove(); }
+function renderProjectModal(){
+  var old=document.getElementById('project-modal-root'); if(old) old.remove();
+  if(!state.projectModalOpen) return;
+  var p = state.projectModalId ? project(state.projectModalId) : null;
+  var statuses=['Planejamento','Em andamento','Pausado','Concluído'];
+  var wrap=document.createElement('div'); wrap.id='project-modal-root'; wrap.className='modal-overlay';
+  wrap.innerHTML = '<div class="modal">' +
+    '<div class="modal-head"><h2>'+(p?'Editar projeto':'Novo projeto')+'</h2><button class="drawer-close" id="projectModalCloseBtn" style="margin-left:auto;">'+icon('close',16)+'</button></div>' +
+    '<div class="modal-body">' +
+      '<div class="field-row"><label>Nome*</label><input type="text" id="pName" value="'+(p?esc(p.name):'')+'" placeholder="Ex: Lançamento coleção verão"></div>' +
+      '<div class="field-row"><label>Descrição</label><textarea id="pDesc" rows="2" placeholder="Do que se trata (opcional)">'+(p?esc(p.description||''):'')+'</textarea></div>' +
+      '<div class="field-two">' +
+        '<div class="field-row"><label>Responsável</label><select id="pResponsible"><option value="">—</option>'+USERS.map(function(u){return '<option value="'+u.id+'"'+(p&&p.responsibleId===u.id?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select></div>' +
+        '<div class="field-row"><label>Status</label><select id="pStatus">'+statuses.map(function(s){return '<option value="'+s+'"'+((p?p.status:'Planejamento')===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>' +
+      '</div>' +
+      '<div class="field-two">' +
+        '<div class="field-row"><label>Data de início</label><input type="date" id="pStart" value="'+(p&&p.startDate?p.startDate:'')+'"></div>' +
+        '<div class="field-row"><label>Prazo de entrega</label><input type="date" id="pDue" value="'+(p&&p.dueDate?p.dueDate:'')+'"></div>' +
+      '</div>' +
+      '<div class="field-row"><label>Participantes</label><select id="pParticipants" multiple size="5">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(p&&p.participants&&p.participants.indexOf(u.id)>-1?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Segure Ctrl (ou Cmd) para marcar vários.</div></div>' +
+    '</div>' +
+    '<div class="modal-foot"><button class="btn btn-ghost" id="projectCancelBtn">Cancelar</button><button class="btn btn-primary" id="projectSaveBtn">'+(p?'Salvar':'Criar projeto')+'</button></div>' +
+  '</div>';
+  document.body.appendChild(wrap);
 }
 
 /* ======================= EVENT WIRING ======================= */
@@ -917,7 +976,7 @@ document.addEventListener('click', function(e){
 
   if(e.target.closest('#notifBtn')){ state.notifOpen=!state.notifOpen; renderNotifBell(); return; }
   var notifRow = e.target.closest('[data-notif]');
-  if(notifRow){ var n=NOTIFICATIONS.find(function(x){return x.id===notifRow.getAttribute('data-notif');}); if(n){ n.read=true; KMDB.markNotifRead(n.id).catch(function(){}); } renderNotifBell(); return; }
+  if(notifRow){ var n=NOTIFICATIONS.find(function(x){return x.id===notifRow.getAttribute('data-notif');}); if(n){ n.read=true; KMDB.markNotifRead(n.id).catch(function(){}); state.notifOpen=false; renderNotifBell(); if(n.taskId && taskById(n.taskId)){ openDrawer(n.taskId); } } return; }
   if(!e.target.closest('#notifPanel') && !e.target.closest('#notifBtn') && state.notifOpen){ state.notifOpen=false; renderNotifBell(); }
 
   if(e.target.closest('#newTaskBtn')){ openModal(); return; }
@@ -930,9 +989,26 @@ document.addEventListener('click', function(e){
       areaId:document.getElementById('mArea').value, subcategory:document.getElementById('mSubcat').value,
       projectId:document.getElementById('mProject').value||null, requesterId:document.getElementById('mRequester').value,
       responsibleId:document.getElementById('mResponsible').value, priority:document.getElementById('mPriority').value,
+      startDate:document.getElementById('mStart').value||null,
       dueDate:document.getElementById('mDue').value||null
     });
     closeModal(); showToast('Tarefa criada.');
+    return;
+  }
+
+  if(e.target.closest('#newProjectBtn')){ openProjectModal(null); return; }
+  var editProj = e.target.closest('[data-edit-project]');
+  if(editProj){ openProjectModal(editProj.getAttribute('data-edit-project')); return; }
+  if(e.target.closest('#projectModalCloseBtn') || e.target.closest('#projectCancelBtn') || e.target===document.getElementById('project-modal-root')){ closeProjectModal(); return; }
+  if(e.target.closest('#projectSaveBtn')){
+    var pname=val('pName'); if(!pname){ showToast('Dê um nome ao projeto.'); return; }
+    var parts=Array.prototype.slice.call(document.getElementById('pParticipants').selectedOptions).map(function(o){return o.value;});
+    var ppayload={ name:pname, description:val('pDesc'), responsibleId:document.getElementById('pResponsible').value||null, participants:parts, startDate:val('pStart')||null, dueDate:val('pDue')||null, status:document.getElementById('pStatus').value };
+    if(state.projectModalId){
+      KMDB.updateProject(state.projectModalId, ppayload).then(function(saved){ var i=PROJECTS.map(function(x){return x.id;}).indexOf(saved.id); if(i>-1) PROJECTS[i]=saved; closeProjectModal(); renderContent(); showToast('Projeto atualizado.'); }).catch(function(){ showToast('Não foi possível salvar o projeto.'); });
+    } else {
+      KMDB.insertProject(ppayload).then(function(saved){ PROJECTS.push(saved); closeProjectModal(); navigate('#/projetos/'+saved.id); showToast('Projeto criado.'); }).catch(function(){ showToast('Não foi possível criar o projeto.'); });
+    }
     return;
   }
 
@@ -959,6 +1035,18 @@ document.addEventListener('click', function(e){
       .catch(function(){ showToast('Falha ao criar área (você é admin?).'); });
     return;
   }
+  var saveRole=e.target.closest('[data-save-role]');
+  if(saveRole){ var rid=saveRole.getAttribute('data-save-role');
+    KMDB.updateProfile(rid,{role_label:val('role_'+rid)}).then(function(){ return refreshData(); }).then(function(){ showToast('Função atualizada.'); }).catch(function(){ showToast('Falha ao salvar função.'); }); return; }
+  var saveArea=e.target.closest('[data-save-area]');
+  if(saveArea){ var aid=saveArea.getAttribute('data-save-area');
+    var asubs=val('asubs_'+aid).split(',').map(function(s){return s.trim();}).filter(Boolean);
+    KMDB.updateArea(aid,{ name:val('aname_'+aid), color:val('acolor_'+aid)||'#7A5AF8', subcats:asubs }).then(function(){ return refreshData(); }).then(function(){ showToast('Área atualizada.'); }).catch(function(){ showToast('Falha ao salvar área.'); }); return; }
+  var remArea=e.target.closest('[data-remove-area]');
+  if(remArea){ var raid=remArea.getAttribute('data-remove-area');
+    if(TASKS.some(function(t){ return t.areaId===raid; })){ showToast('Essa área tem tarefas. Exclua ou mova as tarefas antes de remover a área.'); return; }
+    if(!window.confirm('Remover esta área? Ela sai do menu (pode ser recriada depois).')) return;
+    KMDB.updateArea(raid,{is_active:false}).then(function(){ return refreshData(); }).then(function(){ showToast('Área removida.'); }).catch(function(){ showToast('Falha ao remover área.'); }); return; }
 
   var dismissBanner = e.target.closest('[data-dismiss-banner]');
   if(dismissBanner){ state.bannerDismissed=true; renderContent(); return; }
@@ -977,6 +1065,8 @@ document.addEventListener('click', function(e){
   if(approveBtn){ approveTask(approveBtn.getAttribute('data-approve')); renderDrawer(); renderContent(); return; }
   var rejectBtn = e.target.closest('[data-reject]');
   if(rejectBtn){ rejectTask(rejectBtn.getAttribute('data-reject')); renderDrawer(); renderContent(); return; }
+  var delTask = e.target.closest('[data-delete-task]');
+  if(delTask){ deleteTask(delTask.getAttribute('data-delete-task')); return; }
 
   if(e.target.closest('#addChecklistBtn')){ var el=document.getElementById('newChecklistInput'); addChecklistItem(state.drawerTaskId, el.value); el.value=''; renderDrawer(); return; }
   if(e.target.closest('#addSubtaskBtn')){ var el2=document.getElementById('newSubtaskInput'); addSubtask(state.drawerTaskId, el2.value); el2.value=''; renderDrawer(); return; }
