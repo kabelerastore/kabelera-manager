@@ -45,3 +45,12 @@ test('nextStatusOnApprove avanca para proximo status em fluxo generico', () => {
 test('nextStatusOnApprove no ultimo status permanece', () => {
   assert.strictEqual(KM.nextStatusOnApprove('admin', 'Concluído'), 'Concluído');
 });
+
+test('normalizeTheme retorna light so para "light", senao dark', () => {
+  assert.strictEqual(KM.normalizeTheme('light'), 'light');
+  assert.strictEqual(KM.normalizeTheme('dark'), 'dark');
+  assert.strictEqual(KM.normalizeTheme(null), 'dark');
+  assert.strictEqual(KM.normalizeTheme(undefined), 'dark');
+  assert.strictEqual(KM.normalizeTheme('xpto'), 'dark');
+  assert.strictEqual(KM.normalizeTheme(''), 'dark');
+});

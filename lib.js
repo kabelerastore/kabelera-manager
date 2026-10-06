@@ -54,12 +54,14 @@
   }
   function priorityRank(p) { return { 'Baixa': 0, 'Média': 1, 'Alta': 2, 'Urgente': 3 }[p] || 0; }
   function priorityClass(p) { return { 'Baixa': 'pr-good', 'Média': 'pr-warning', 'Alta': 'pr-serious', 'Urgente': 'pr-critical' }[p] || 'pr-good'; }
+  function normalizeTheme(raw) { return raw === 'light' ? 'light' : 'dark'; }
 
   return {
     esc: esc, escRegex: escRegex, mentionify: mentionify,
     toISODate: toISODate, addDaysISO: addDaysISO,
     FLOWS: FLOWS, FINAL_STATUSES: FINAL_STATUSES, RETURN_RULES: RETURN_RULES,
     isFinalStatus: isFinalStatus, nextStatusOnApprove: nextStatusOnApprove,
-    priorityRank: priorityRank, priorityClass: priorityClass
+    priorityRank: priorityRank, priorityClass: priorityClass,
+    normalizeTheme: normalizeTheme
   };
 });
