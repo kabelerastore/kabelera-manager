@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kabelera — Dashboard de Redes Sociais (Jan-Ago 2026)</title>
+<script>
+  (function(){
+    var t = 'dark';
+    try { if (localStorage.getItem('km-theme') === 'light') t = 'light'; } catch(e){}
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+<style>
+:root{
+  --brand:#FFFA2A; --brand-dark:#E6D400; --accent:#FFFA2A; --accent-light:rgba(255,250,42,.16);
+  --dark:#F1F2F6; --muted:#AEB4C4; --bg:#12141A; --card:#1B1E27; --border:#2C3140;
+  --positive:#3FC23F; --negative:#E56464; --on-accent:#000000;
+}
+:root[data-theme="light"]{
+  --brand:#151824; --brand-dark:#000000; --accent:#151824; --accent-light:rgba(255,250,42,.22);
+  --dark:#151824; --muted:#5B6172; --bg:#F6F7FA; --card:#FFFFFF; --border:#E1E5EB;
+  --positive:#0CA30C; --negative:#C93A3A; --on-accent:#FFFFFF;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--dark);line-height:1.5;}
+.wrap{max-width:1320px;margin:0 auto;padding:20px;}
+header{background:linear-gradient(135deg,var(--card),var(--border));color:var(--dark);border:1px solid var(--border);padding:24px 28px;border-radius:12px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}
+header h1{font-size:22px;font-weight:700;}
+header .sub{font-size:13px;opacity:.85;margin-top:2px;}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.filters label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px;}
+.filters select{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--dark);font-size:13px;min-width:160px;}
+.filters select option{background:var(--card);color:var(--dark);}
+.month-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;}
+.month-tabs button{border:1px solid var(--border);background:var(--card);color:var(--muted);padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.month-tabs button.active{background:var(--brand);color:var(--on-accent);border-color:var(--brand);}
+.month-tabs button:hover:not(.active){background:var(--accent-light);}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:18px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.kpi .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+.kpi .value{font-size:24px;font-weight:700;color:var(--brand);}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.grid1{margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+@media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;}
+.card h3{font-size:14px;font-weight:700;color:var(--dark);margin-bottom:4px;}
+.card .desc{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.chart-box{position:relative;height:260px;}
+.chart-box.tall{height:300px;}
+.empty-state{display:flex;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--muted);font-size:12.5px;padding:0 20px;background:var(--accent-light);border-radius:8px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;white-space:nowrap;user-select:none;}
+thead th:hover{color:var(--brand);}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+tbody tr:hover{background:var(--accent-light);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+.badge.IMAGE{background:#E6F1FB;color:#0C447C;}
+.badge.VIDEO{background:#FAECE7;color:#4A1B0C;}
+.badge.CAROUSEL_ALBUM{background:var(--accent-light);color:var(--dark);}
+.caption-cell{max-width:280px;}
+.table-wrap{max-height:520px;overflow-y:auto;}
+footer{text-align:center;font-size:11.5px;color:var(--muted);padding:18px 0 4px;}
+.note{font-size:12px;color:var(--muted);background:var(--accent-light);border-radius:8px;padding:10px 14px;margin-bottom:14px;}
+.top-tabs{display:flex;gap:8px;margin-bottom:18px;}
+.ttab{border:1px solid var(--border);background:var(--card);color:var(--muted);padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.ttab.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
+.ttab:hover:not(.active){background:var(--accent-light);}
+.strategy-head{margin-bottom:18px;}
+.strategy-head h2{font-size:20px;font-weight:700;color:var(--dark);margin-bottom:4px;}
+.strategy-head p{font-size:13px;color:var(--muted);}
+.callout-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
+@media (max-width:900px){.callout-grid{grid-template-columns:1fr;}}
+.callout{border-radius:10px;padding:14px 16px;font-size:12.5px;line-height:1.55;border-left:4px solid;}
+.callout.green{background:#EAF3DE;border-color:#3F7D4F;color:#27500A;}
+.callout.amber{background:#FAEEDA;border-color:#BA7517;color:#633806;}
+.callout.red{background:#FCEBEB;border-color:#B4463A;color:#501313;}
+.callout b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;}
+.section-block{margin-bottom:30px;}
+.section-block h2{font-size:18px;font-weight:700;color:var(--dark);margin-bottom:3px;}
+.section-block .section-desc{font-size:12.5px;color:var(--muted);margin-bottom:16px;}
+.analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;}
+@media (max-width:1000px){.analysis-grid{grid-template-columns:1fr;}}
+.analysis-card{background:var(--card);border:1px solid var(--border);border-top:4px solid var(--brand);border-radius:10px;padding:16px 18px;}
+.analysis-card .tag{display:inline-block;background:var(--accent-light);color:var(--dark);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;border-radius:12px;margin-bottom:9px;}
+.analysis-card h4{font-size:14px;font-weight:700;margin-bottom:4px;}
+.analysis-card .cap{font-size:12px;color:var(--muted);margin-bottom:10px;font-style:italic;}
+.stat-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.stat-pill{background:var(--accent-light);border-radius:6px;padding:5px 9px;font-size:11px;color:var(--dark);font-weight:700;}
+.analysis-card .why{font-size:12px;color:var(--dark);margin-bottom:6px;}
+.analysis-card .why b{color:var(--brand);}
+.format-sub{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:18px 0 10px;}
+.format-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media (max-width:900px){.format-grid{grid-template-columns:1fr;}}
+.format-card{background:var(--card);border:1px solid var(--border);border-left:4px solid;border-radius:8px;padding:13px 16px;font-size:12.5px;}
+.format-card.good{border-left-color:#3F7D4F;}
+.format-card.watch{border-left-color:#BA7517;}
+.format-card h5{font-size:13.5px;font-weight:700;margin-bottom:5px;color:var(--dark);}
+.format-card p{color:var(--muted);}
+.suggestion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+@media (max-width:1000px){.suggestion-grid{grid-template-columns:1fr;}}
+.suggestion-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:15px 17px;}
+.suggestion-card .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--brand);color:var(--on-accent);font-size:11px;font-weight:700;margin-bottom:8px;}
+.suggestion-card h5{font-size:13.5px;font-weight:700;margin-bottom:8px;color:var(--dark);}
+.suggestion-card .why-box{font-size:11.5px;margin-bottom:7px;}
+.suggestion-card .why-box b{color:var(--brand);}
+.suggestion-card .how-box{font-size:11.5px;color:var(--muted);}
+.suggestion-card .how-box b{color:var(--dark);}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+@media (max-width:900px){.plan-grid{grid-template-columns:1fr;}}
+.plan-col{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.plan-col .plan-badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:4px 10px;border-radius:12px;margin-bottom:10px;}
+.plan-col.p7 .plan-badge{background:#FCEBEB;color:#B4463A;}
+.plan-col.p30 .plan-badge{background:#FAEEDA;color:#BA7517;}
+.plan-col.p90 .plan-badge{background:#EAF3DE;color:#3F7D4F;}
+.plan-col ul{list-style:none;padding:0;}
+.plan-col li{font-size:12.5px;color:var(--dark);padding:8px 0;border-bottom:1px solid var(--border);}
+.plan-col li:last-child{border-bottom:none;}
+.plan-col li:before{content:"→ ";color:var(--brand);font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top-tabs">
+  <button class="ttab active" id="tab-dashboard" onclick="showView('dashboard')">Dashboard</button>
+  <button class="ttab" id="tab-strategy" onclick="showView('strategy')">Análise Estratégica</button>
+</div>
+
+<div id="view-dashboard">
+
+<header>
+  <div>
+    <h1>Kabelera · Dashboard de Redes Sociais</h1>
+    <div class="sub">@kabelera.oficial — Instagram · Janeiro a Agosto/2026 · Fonte: Windsor.ai (Instagram Insights)</div>
+  </div>
+  <div class="filters">
+    <div>
+      <label>Formato</label>
+      <select id="f-format" onchange="dash.applyFilters()">
+        <option value="all">Todos os formatos</option>
+        <option value="IMAGE">Imagem</option>
+        <option value="VIDEO">Vídeo/Reels</option>
+        <option value="CAROUSEL_ALBUM">Carrossel</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<div class="month-tabs" id="month-tabs"></div>
+<div class="note" id="period-note"></div>
+
+<section class="kpi-row" id="kpi-row"></section>
+
+<section class="grid1">
+  <div class="card">
+    <h3>Visão geral por mês</h3>
+    <div class="desc">Curtidas médias e taxa de engajamento média por publicação, mês a mês. O mês selecionado acima aparece destacado.</div>
+    <div class="chart-box tall"><canvas id="chartMonthly" role="img" aria-label="Gráfico de barras comparando curtidas médias e taxa de engajamento média por mês, de janeiro a julho de 2026"></canvas></div>
+  </div>
+</section>
+
+<section class="grid2">
+  <div class="card">
+    <h3>Alcance diário e interações totais da conta</h3>
+    <div class="desc">Janela disponível na API do Instagram para métricas diárias de conta (02/08 a 31/08/2026).</div>
+    <div class="chart-box tall" id="trendBoxWrap"><canvas id="chartTrend" role="img" aria-label="Gráfico de alcance diário e interações totais da conta entre 2 e 31 de agosto de 2026"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Taxa de engajamento por formato</h3>
+    <div class="desc">Média da taxa de engajamento (engajamento / alcance) no período selecionado.</div>
+    <div class="chart-box tall"><canvas id="chartFormat" role="img" aria-label="Gráfico de barras da taxa de engajamento média por formato de conteúdo"></canvas></div>
+  </div>
+</section>
+
+<section class="grid3">
+  <div class="card">
+    <h3>Engajamento médio por dia da semana</h3>
+    <div class="desc">Base: publicações no período selecionado.</div>
+    <div class="chart-box"><canvas id="chartWeekday" role="img" aria-label="Gráfico de barras do engajamento médio por dia da semana"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Perfil da audiência</h3>
+    <div class="desc">Gênero e faixa etária (dado lifetime da conta, não varia por filtro de período).</div>
+    <div style="display:flex;gap:10px;">
+      <div class="chart-box" style="flex:1;height:220px;"><canvas id="chartGender" role="img" aria-label="Gráfico de rosca da distribuição de gênero da audiência: 83% feminino, 11% masculino, 6% não especificado"></canvas></div>
+      <div class="chart-box" style="flex:1.3;height:220px;"><canvas id="chartAge" role="img" aria-label="Gráfico de barras da distribuição por faixa etária da audiência, com pico em 35-44 anos"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3>Publicações no período</h3>
+  <div class="desc">Clique nos cabeçalhos para ordenar. <span id="table-count"></span></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-field="date">Data</th>
+          <th data-field="media_type">Formato</th>
+          <th data-field="media_caption">Legenda</th>
+          <th data-field="media_like_count">Curtidas</th>
+          <th data-field="media_comments_count">Coment.</th>
+          <th data-field="media_reach">Alcance</th>
+          <th data-field="media_views">Visualiz.</th>
+          <th data-field="media_engagement">Engaj.</th>
+          <th data-field="engagement_rate">Taxa</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>Kabelera · Dashboard gerado a partir de dados do Instagram Insights (Windsor.ai). Métricas por publicação cobrem janeiro a agosto/2026 (julho parcial, até 23/07). Métricas diárias de conta (alcance total, interações) limitadas à janela de 30 dias da API do Instagram (02/08–31/08).</footer>
+
+</div>
+
+<div id="view-strategy" style="display:none">
+
+<div class="strategy-head">
+  <h2>Análise estratégica — leitura aprofundada (Jan-Ago/2026)</h2>
+  <p>Baseada nos 190 posts do período. Números reais extraídos do Instagram Insights, sem estimativas.</p>
+</div>
+
+<div class="callout-grid">
+  <div class="callout green"><b>Sinal positivo</b>Eventos de comunidade (@hhwc.br e parceiros) seguem o padrão de maior retorno: 12 posts, taxa média de <b>5,1%</b> e alcance <b>79% acima</b> da média geral (1.893 vs 1.055).</div>
+  <div class="callout amber"><b>Ponto de atenção</b>O carrossel caiu 6 meses seguidos — de <b>4,74%</b> em janeiro para <b>3,38%</b> em julho (-29%) — mas mostrou sinal de recuperação em agosto, subindo para <b>4,20%</b>. Ainda abaixo do pico de fevereiro (5,53%).</div>
+  <div class="callout red"><b>Sinal de risco</b>O alcance médio por post caiu <b>60%</b> em 8 meses: de 1.769 em janeiro para 713 em agosto, mesmo com a taxa de engajamento estável — indício de queda de alcance orgânico, não de queda de interesse do conteúdo.</div>
+</div>
+
+<div class="section-block">
+  <h2>Análise aprofundada — os conteúdos que mais geraram efeito</h2>
+  <div class="section-desc">Os 3 posts de maior impacto do período, e o que cada um ensina sobre o que funciona.</div>
+  <div class="analysis-grid">
+    <div class="analysis-card">
+      <span class="tag">Vídeo tutorial</span>
+      <h4>"Fita de cetim é aquele acessório indispensável..."</h4>
+      <div class="cap">27/04/2026</div>
+      <div class="stat-row">
+        <span class="stat-pill">384 engajamento (máx. do período)</span>
+        <span class="stat-pill">7.870 alcance</span>
+        <span class="stat-pill">11.279 views</span>
+        <span class="stat-pill">316 curtidas</span>
+      </div>
+      <div class="why"><b>Por que funcionou:</b> resolve um problema prático do produto em segundos, sem depender de data sazonal.</div>
+      <div class="why"><b>O que isso ensina:</b> conteúdo utilitário ("como usar") tem teto de alcance mais alto que posts de vitrine de produto.</div>
+    </div>
+    <div class="analysis-card">
+      <span class="tag">Depoimento / UGC</span>
+      <h4>"Se você já deixou de usar boné porque não encaixava..."</h4>
+      <div class="cap">28/02/2026 — com @joanateles</div>
+      <div class="stat-row">
+        <span class="stat-pill">10,27% de taxa (maior entre os posts de alcance relevante)</span>
+        <span class="stat-pill">37 comentários (recorde)</span>
+        <span class="stat-pill">173 curtidas</span>
+      </div>
+      <div class="why"><b>Por que funcionou:</b> prova social real + ensina o "jeito certo" de usar, gerando identificação e conversa.</div>
+      <div class="why"><b>O que isso ensina:</b> parceria com cliente real converte mais que produção 100% própria.</div>
+    </div>
+    <div class="analysis-card">
+      <span class="tag">Pré-venda / urgência</span>
+      <h4>"Atenção se liga no recado do @calebeser: aproveita a pré venda..."</h4>
+      <div class="cap">31/08/2026 — último dia de campanha</div>
+      <div class="stat-row">
+        <span class="stat-pill">11,24% de taxa (novo recorde do período)</span>
+        <span class="stat-pill">gatilho de escassez ('último dia')</span>
+      </div>
+      <div class="why"><b>Por que funcionou:</b> mensagem curta, criador parceiro e urgência real de prazo — não é o desconto que converte, é o senso de tempo esgotando.</div>
+      <div class="why"><b>O que isso ensina:</b> promoção rende mais quando concentrada nos últimos dias com linguagem de urgência, em vez de espalhada ao longo de toda a campanha.</div>
+    </div>
+    <div class="analysis-card">
+      <span class="tag">Institucional / PR</span>
+      <h4>Programa Revista Alesp — Empreendedorismo Jovem</h4>
+      <div class="cap">30/03/2026 — @assembleiasp</div>
+      <div class="stat-row">
+        <span class="stat-pill">10,19% de taxa</span>
+        <span class="stat-pill">20 comentários</span>
+        <span class="stat-pill">149 curtidas</span>
+      </div>
+      <div class="why"><b>Por que funcionou:</b> humaniza a marca e a fundadora, saindo do ciclo só-produto.</div>
+      <div class="why"><b>O que isso ensina:</b> conteúdo institucional bem posicionado converte tão bem quanto conteúdo comercial.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-block">
+  <h2>Formatos — o que funciona e o que pode melhorar</h2>
+  <div class="section-desc">Agregado dos 190 posts por categoria de conteúdo, não só por tipo de mídia.</div>
+  <div class="format-sub">O que funciona</div>
+  <div class="format-grid">
+    <div class="format-card good">
+      <h5>Cobertura de evento / comunidade</h5>
+      <p>12 posts · taxa média 5,1% · alcance médio 1.893 (79% acima da média geral). Segue o melhor retorno isolado do período — vale virar pilar fixo de pauta.</p>
+    </div>
+    <div class="format-card good">
+      <h5>Carrossel com narrativa/identidade</h5>
+      <p>Taxa acumulada de 4,49%, ainda o melhor formato do período, com recuperação em agosto (3,38%→4,20%) após 6 meses de queda.</p>
+    </div>
+    <div class="format-card good">
+      <h5>Vídeo tutorial de uso prático</h5>
+      <p>Maior engajamento absoluto do período (384) veio desse formato, em abril; formato de vídeo fechou agosto com 4,67% de taxa, o melhor mês do ano para o formato.</p>
+    </div>
+    <div class="format-card good">
+      <h5>Depoimento / UGC com cliente ou criador parceiro</h5>
+      <p>A maior taxa histórica (10,27%) e o maior volume de comentários (37) do período vieram desse formato; agosto reforçou o padrão com o post do criador @calebeser (11,24%, novo recorde).</p>
+    </div>
+  </div>
+  <div class="format-sub">O que pode melhorar</div>
+  <div class="format-grid">
+    <div class="format-card watch">
+      <h5>Carrossel "grade de produto" (sem narrativa)</h5>
+      <p>Mesma família do formato mais forte; caiu de fevereiro a julho (5,53%→3,38%, -39%) e recuperou parte em agosto (4,20%) — ainda merece revisão do roteiro de conteúdo.</p>
+    </div>
+    <div class="format-card watch">
+      <h5>Campanha promocional concentrada (pré-venda de agosto)</h5>
+      <p>23 posts no mês, taxa média subiu para 4,33% (9% acima do restante do conteúdo) — mas puxada por 3 posts de urgência no fechamento da campanha (7,8%–11,2%); o meio da campanha ficou na média (~3,5%). Risco de saturação com alto volume de posts promocionais seguidos.</p>
+    </div>
+    <div class="format-card watch">
+      <h5>Imagem estática isolada</h5>
+      <p>Ainda o formato mais fraco no acumulado (3,23% de taxa), mas em alta a maior parte do período (3,09%→3,71% até julho), com leve acomodação em agosto (3,61%) — vale investigar a causa e escalar.</p>
+    </div>
+    <div class="format-card watch">
+      <h5>Repost de cliente sem contexto</h5>
+      <p>Aparece pontualmente com baixo alcance — falta um gancho de conteúdo próprio junto ao repost.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section-block">
+  <h2>Sugestões estratégicas — com os porquês</h2>
+  <div class="section-desc">Seis frentes priorizadas a partir dos padrões observados nos 190 posts.</div>
+  <div class="suggestion-grid">
+    <div class="suggestion-card">
+      <div class="num">1</div>
+      <h5>Consolidar a recuperação do carrossel com narrativa</h5>
+      <div class="why-box"><b>Por quê:</b> é o formato de maior taxa acumulada (4,49%) e já voltou a subir em agosto (3,38%→4,20%) — mas ainda não recuperou o pico de fevereiro (5,53%).</div>
+      <div class="how-box"><b>Como:</b> todo carrossel precisa de um fio condutor — bastidor, transformação, identidade — nunca só fotos de produto lado a lado.</div>
+    </div>
+    <div class="suggestion-card">
+      <div class="num">2</div>
+      <h5>Expandir cobertura de eventos e comunidade</h5>
+      <div class="why-box"><b>Por quê:</b> maior taxa de engajamento por formato (5,1%) e alcance 79% acima da média geral — o padrão mais consistente dos 8 meses.</div>
+      <div class="how-box"><b>Como:</b> pauta fixa de stories ao vivo + resumo em carrossel/reels pós-evento, com parceiros como @hhwc.br.</div>
+    </div>
+    <div class="suggestion-card">
+      <div class="num">3</div>
+      <h5>Institucionalizar o depoimento/UGC guiado</h5>
+      <div class="why-box"><b>Por quê:</b> segue o formato de maior taxa (10,27%) e agora tem um segundo exemplo em agosto — parceria com @calebeser bateu novo recorde (11,24%).</div>
+      <div class="how-box"><b>Como:</b> recrutar 2-3 clientes ou criadores parceiros por mês para vídeos curtos de "como eu uso".</div>
+    </div>
+    <div class="suggestion-card">
+      <div class="num">4</div>
+      <h5>Concentrar promoção em urgência real, não em volume</h5>
+      <div class="why-box"><b>Por quê:</b> a campanha de pré-venda de agosto só superou o resto do conteúdo (+9%) por causa de 3 posts de urgência no fechamento; o miolo da campanha (posts espaçados ao longo do mês) rendeu na média.</div>
+      <div class="how-box"><b>Como:</b> reduzir o número de posts promocionais por campanha e concentrar a comunicação de urgência ("últimas horas", "estoque limitado") nos 2-3 dias finais.</div>
+    </div>
+    <div class="suggestion-card">
+      <div class="num">5</div>
+      <h5>Investigar a queda de alcance orgânico por post</h5>
+      <div class="why-box"><b>Por quê:</b> alcance médio caiu 60% entre janeiro (1.769) e agosto (713), mesmo com taxa de engajamento estável — sinal de menor distribuição orgânica, não de conteúdo mais fraco.</div>
+      <div class="how-box"><b>Como:</b> testar horários de publicação, aumentar uso de reels/vídeo (menos afetados pela queda) e revisar se há concorrência maior por atenção no nicho.</div>
+    </div>
+    <div class="suggestion-card">
+      <div class="num">6</div>
+      <h5>Concentrar os posts de maior investimento em segunda e sábado</h5>
+      <div class="why-box"><b>Por quê:</b> maior taxa de engajamento da semana (4,36% e 4,31%); domingo também aparece forte em volume de interações (60,2 em média), reforçando o fim de semana.</div>
+      <div class="how-box"><b>Como:</b> reservar segunda e sábado para reels editados e campanhas; usar o domingo como reforço leve (stories, bastidor).</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-block">
+  <h2>Plano de ação priorizado</h2>
+  <div class="section-desc">Organizado por horizonte de execução.</div>
+  <div class="plan-grid">
+    <div class="plan-col p7">
+      <span class="plan-badge">7 dias</span>
+      <ul>
+        <li>Mapear e agendar a cobertura do próximo evento de comunidade (parceiro tipo @hhwc.br)</li>
+        <li>Recrutar 1 cliente ou criador parceiro para um vídeo depoimento/tutorial curto, no estilo do post com @calebeser</li>
+        <li>Revisar o calendário da próxima campanha promocional para concentrar posts de urgência nos dias finais</li>
+      </ul>
+    </div>
+    <div class="plan-col p30">
+      <span class="plan-badge">30 dias</span>
+      <ul>
+        <li>Publicar 2-3 vídeos tutoriais de uso replicando o formato do post de maior engajamento (27/04)</li>
+        <li>Testar 4 carrosséis com narrativa de identidade/bastidor no lugar do catálogo direto, consolidando a recuperação já observada em agosto</li>
+        <li>Reagendar os posts de maior investimento para segundas e sábados, com reforço leve aos domingos</li>
+      </ul>
+    </div>
+    <div class="plan-col p90">
+      <span class="plan-badge">90 dias</span>
+      <ul>
+        <li>Consolidar pauta recorrente de depoimento/UGC com clientes e criadores parceiros (2-3 por mês)</li>
+        <li>Fixar o calendário de eventos parceiros como pilar permanente de conteúdo</li>
+        <li>Investigar a causa da queda de 60% no alcance médio por post e testar ajustes de horário/formato</li>
+        <li>Redesenhar o formato das campanhas promocionais: menos posts espalhados, mais concentração de urgência no fechamento</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section-block">
+  <h2>Foco do mês — Agosto/2026</h2>
+  <div class="section-desc">Leitura exclusiva dos 50 posts publicados em agosto, comparando com a média de janeiro a julho (140 posts).</div>
+  <div class="plan-grid">
+    <div class="plan-col p90">
+      <span class="plan-badge">O que funcionou</span>
+      <ul>
+        <li>Melhor taxa de engajamento do ano: 4,48% em agosto vs 3,83% de média em jan-jul (+17%).</li>
+        <li>Vídeo foi o formato-força do mês (35 dos 50 posts, 4,67% de taxa); os dois maiores engajamentos absolutos vieram de vídeos com linguagem de identidade e inclusão ("para tranças, dreads, cachos e black power").</li>
+        <li>Gatilho de urgência no fechamento da pré-venda funcionou: os 2 últimos posts da campanha (30 e 31/08) bateram 8,80% e 11,24% de taxa — os maiores do mês.</li>
+        <li>Sábado (5,03%) e segunda (4,88%) seguiram como os melhores dias da semana para engajamento.</li>
+      </ul>
+    </div>
+    <div class="plan-col p7">
+      <span class="plan-badge">O que não funcionou</span>
+      <ul>
+        <li>Alcance médio por post despencou para 713 — 39% abaixo da média jan-jul (1.178) e o pior mês do período, mesmo com o maior volume de posts já publicado em um mês.</li>
+        <li>Comentários praticamente desapareceram: só 10 no mês inteiro, e 42 dos 50 posts sem nenhum comentário — contra uma média de cerca de 41 comentários/mês nos 7 meses anteriores, com bem menos posts.</li>
+        <li>Cobertura de evento caiu para 1 único post (@hhwc.br, 24/08) — bem abaixo do ritmo de meses anteriores, justamente quando o alcance mais precisava de reforço.</li>
+        <li>Os posts mais fracos do mês (1,5% a 2,9% de taxa) repetem o padrão "grade de produto" sem narrativa já sinalizado como fraco no restante do período — ex.: Dad Hat, Pretinho do Poder, boné de camurça.</li>
+      </ul>
+    </div>
+    <div class="plan-col p30">
+      <span class="plan-badge">O que pode melhorar</span>
+      <ul>
+        <li>Volume de postagem quase triplicou (1,67 posts/dia vs 0,66 nos 7 meses anteriores) sem ganho proporcional de alcance — vale reduzir a cadência e priorizar qualidade por post.</li>
+        <li>Reservar a linguagem de urgência ("último dia", "corre no site") só para os 2-3 dias finais de campanha, como funcionou no fechamento de agosto — evitar usar durante o mês inteiro.</li>
+        <li>Transformar a linguagem de identidade/inclusão dos vídeos de topo em pilar fixo de conteúdo, não só em post pontual.</li>
+        <li>Retomar ao menos 2 posts de evento/comunidade por mês para recuperar alcance sem depender só de promoção.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<footer>Análise construída sobre os mesmos 190 posts do dashboard (Jan-Ago/2026). Percentuais de taxa de engajamento = engajamento / alcance, por publicação.</footer>
+
+</div>
+
+</div>
+
+<script>
+const POSTS = [{"media_id": 18090118123808892, "media_type": "IMAGE", "media_caption": "Prontos pra 2026 com estilo, volume e liberdade 🤩", "date": "2026-01-02", "media_like_count": 76, "media_comments_count": 4, "media_reach": 3067, "media_views": 21498, "media_saved": 7, "media_shares": 5, "media_engagement": 96, "media_profile_visits": 16.0, "media_follows": 2.0, "engagement_rate": 3.13, "weekday": "Friday", "month": "2026-01"}, {"media_id": 17867062914537453, "media_type": "IMAGE", "media_caption": "Kabelera + Verão ☀️ Como tem rolado por aí?", "date": "2026-01-05", "media_like_count": 28, "media_comments_count": 0, "media_reach": 2060, "media_views": 18805, "media_saved": 4, "media_shares": 4, "media_engagement": 36, "media_profile_visits": 1.0, "media_follows": 1.0, "engagement_rate": 1.75, "weekday": "Monday", "month": "2026-01"}, {"media_id": 18091507846970098, "media_type": "IMAGE", "media_caption": "Não diga mais nada! 🤩 Por aqui o foco é priorizar o volume.", "date": "2026-01-06", "media_like_count": 77, "media_comments_count": 0, "media_reach": 2921, "media_views": 21340, "media_saved": 5, "media_shares": 17, "media_engagement": 99, "media_profile_visits": 17.0, "media_follows": 4.0, "engagement_rate": 3.39, "weekday": "Tuesday", "month": "2026-01"}, {"media_id": 18129792007513933, "media_type": "CAROUSEL_ALBUM", "media_caption": "Perfeito!🤩 Esse é nosso camurça marrom TOP 1 da galera.", "date": "2026-01-07", "media_like_count": 52, "media_comments_count": 8, "media_reach": 2030, "media_views": 19757, "media_saved": 21, "media_shares": 13, "media_engagement": 94, "media_profile_visits": 4.0, "media_follows": 1.0, "engagement_rate": 4.63, "weekday": "Wednesday", "month": "2026-01"}, {"media_id": 17937899130120782, "media_type": "VIDEO", "media_caption": "Bora de look! ☀️😍 K-Bordado Marrom, cupom primeira compra.", "date": "2026-01-08", "media_like_count": 89, "media_comments_count": 0, "media_reach": 2294, "media_views": 2783, "media_saved": 22, "media_shares": 14, "media_engagement": 128, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.58, "weekday": "Thursday", "month": "2026-01"}, {"media_id": 17872603836488929, "media_type": "VIDEO", "media_caption": "Você ainda duvida que nosso boné não segura o volumão? É boné pra quem realmente tem volume!", "date": "2026-01-09", "media_like_count": 57, "media_comments_count": 0, "media_reach": 2202, "media_views": 2911, "media_saved": 18, "media_shares": 38, "media_engagement": 114, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.18, "weekday": "Friday", "month": "2026-01"}, {"media_id": 18078947537584753, "media_type": "IMAGE", "media_caption": "Vai no site e aproveite o cupom para garantir seus acessórios desse verão.", "date": "2026-01-09", "media_like_count": 18, "media_comments_count": 0, "media_reach": 1857, "media_views": 19657, "media_saved": 3, "media_shares": 3, "media_engagement": 25, "media_profile_visits": 0.0, "media_follows": 1.0, "engagement_rate": 1.35, "weekday": "Friday", "month": "2026-01"}, {"media_id": 18107871718640906, "media_type": "CAROUSEL_ALBUM", "media_caption": "Diz aí qual cor favorita do boné de veludo? Novidade por aqui.", "date": "2026-01-10", "media_like_count": 98, "media_comments_count": 4, "media_reach": 2357, "media_views": 20196, "media_saved": 40, "media_shares": 22, "media_engagement": 169, "media_profile_visits": 10.0, "media_follows": 2.0, "engagement_rate": 7.17, "weekday": "Saturday", "month": "2026-01"}, {"media_id": 17993719325899461, "media_type": "VIDEO", "media_caption": "Tem diferença sim vai! Não dá pra comparar boné da Kabelera com uma viseira simples.", "date": "2026-01-14", "media_like_count": 70, "media_comments_count": 2, "media_reach": 2228, "media_views": 2401, "media_saved": 10, "media_shares": 6, "media_engagement": 89, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.99, "weekday": "Wednesday", "month": "2026-01"}, {"media_id": 18555281566049687, "media_type": "IMAGE", "media_caption": "Ah que delicia o Verão! Repost @leticiarodriguescss dias na praia com a família.", "date": "2026-01-15", "media_like_count": 47, "media_comments_count": 8, "media_reach": 1892, "media_views": 15059, "media_saved": 23, "media_shares": 6, "media_engagement": 85, "media_profile_visits": 11.0, "media_follows": 0.0, "engagement_rate": 4.49, "weekday": "Thursday", "month": "2026-01"}, {"media_id": 17994933266899835, "media_type": "CAROUSEL_ALBUM", "media_caption": "Não dá pra fingir costume com a abertura e liberdade que o boné Kabelera dá pro seu volume.", "date": "2026-01-16", "media_like_count": 55, "media_comments_count": 4, "media_reach": 1693, "media_views": 14592, "media_saved": 24, "media_shares": 4, "media_engagement": 88, "media_profile_visits": 10.0, "media_follows": 3.0, "engagement_rate": 5.2, "weekday": "Friday", "month": "2026-01"}, {"media_id": 17844368199674542, "media_type": "VIDEO", "media_caption": "Não é só artigo de moda! É segurança, confiança e autoestima. Feedback @arape.malik.", "date": "2026-01-20", "media_like_count": 18, "media_comments_count": 0, "media_reach": 2827, "media_views": 3264, "media_saved": 0, "media_shares": 1, "media_engagement": 19, "media_profile_visits": null, "media_follows": null, "engagement_rate": 0.67, "weekday": "Tuesday", "month": "2026-01"}, {"media_id": 17939297601133080, "media_type": "IMAGE", "media_caption": "Temperatura baixou! Mas tem touca de frio pra você continuar com estilo e conforto.", "date": "2026-01-21", "media_like_count": 29, "media_comments_count": 0, "media_reach": 1333, "media_views": 10395, "media_saved": 8, "media_shares": 5, "media_engagement": 44, "media_profile_visits": 10.0, "media_follows": 0.0, "engagement_rate": 3.3, "weekday": "Wednesday", "month": "2026-01"}, {"media_id": 17904920844181733, "media_type": "IMAGE", "media_caption": "Estilo e liberdade no Boné de Camurça Kabelera Vinho, abertura traseira ajustável.", "date": "2026-01-22", "media_like_count": 35, "media_comments_count": 0, "media_reach": 1343, "media_views": 9854, "media_saved": 25, "media_shares": 4, "media_engagement": 66, "media_profile_visits": 15.0, "media_follows": 3.0, "engagement_rate": 4.91, "weekday": "Thursday", "month": "2026-01"}, {"media_id": 18108787132729980, "media_type": "IMAGE", "media_caption": "Quer ganhar Frete Grátis? Comenta canal que enviamos o link do Família Kabelera!", "date": "2026-01-22", "media_like_count": 19, "media_comments_count": 10, "media_reach": 1388, "media_views": 10155, "media_saved": 4, "media_shares": 4, "media_engagement": 37, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 2.67, "weekday": "Thursday", "month": "2026-01"}, {"media_id": 18100249600858000, "media_type": "CAROUSEL_ALBUM", "media_caption": "Sextou em clima de alegria! Bora de Trucker K Bordado Verde?", "date": "2026-01-23", "media_like_count": 19, "media_comments_count": 2, "media_reach": 1034, "media_views": 9432, "media_saved": 7, "media_shares": 1, "media_engagement": 30, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 2.9, "weekday": "Friday", "month": "2026-01"}, {"media_id": 17927840331195608, "media_type": "CAROUSEL_ALBUM", "media_caption": "Marrons que são Top por aqui! Bordado, Veludo ou Camurça.", "date": "2026-01-24", "media_like_count": 28, "media_comments_count": 1, "media_reach": 1141, "media_views": 8743, "media_saved": 13, "media_shares": 5, "media_engagement": 48, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 4.21, "weekday": "Saturday", "month": "2026-01"}, {"media_id": 18113832949526897, "media_type": "IMAGE", "media_caption": "Na busca pela liberdade do volume a gente entrega muito carinho e dedicação.", "date": "2026-01-25", "media_like_count": 12, "media_comments_count": 1, "media_reach": 982, "media_views": 7544, "media_saved": 2, "media_shares": 1, "media_engagement": 17, "media_profile_visits": 0.0, "media_follows": 0.0, "engagement_rate": 1.73, "weekday": "Sunday", "month": "2026-01"}, {"media_id": 17885360796431595, "media_type": "IMAGE", "media_caption": "Sempre dá pra exaltar o volume da sua Kabelera. Clássico Pretinho do Poder!", "date": "2026-01-26", "media_like_count": 22, "media_comments_count": 1, "media_reach": 875, "media_views": 6844, "media_saved": 5, "media_shares": 3, "media_engagement": 31, "media_profile_visits": 1.0, "media_follows": 1.0, "engagement_rate": 3.54, "weekday": "Monday", "month": "2026-01"}, {"media_id": 18064301909559311, "media_type": "CAROUSEL_ALBUM", "media_caption": "Aquele boné top que te faz destacar a Kabelera. Nosso K-bordado.", "date": "2026-01-28", "media_like_count": 34, "media_comments_count": 1, "media_reach": 953, "media_views": 5281, "media_saved": 3, "media_shares": 0, "media_engagement": 41, "media_profile_visits": 6.0, "media_follows": 2.0, "engagement_rate": 4.3, "weekday": "Wednesday", "month": "2026-01"}, {"media_id": 18062163287314702, "media_type": "IMAGE", "media_caption": "Sempre tem aquele boné especial aqui na Kabelera que marca o coração.", "date": "2026-01-30", "media_like_count": 15, "media_comments_count": 0, "media_reach": 671, "media_views": 3159, "media_saved": 9, "media_shares": 0, "media_engagement": 25, "media_profile_visits": 4.0, "media_follows": 1.0, "engagement_rate": 3.73, "weekday": "Friday", "month": "2026-01"}, {"media_id": 17931506649175286, "media_type": "CAROUSEL_ALBUM", "media_caption": "Bora bora segundar no estilo Kabelera! Fevereiro é carnaval, treininho no @hhwc.br.", "date": "2026-02-02", "media_like_count": 38, "media_comments_count": 5, "media_reach": 678, "media_views": 2201, "media_saved": 1, "media_shares": 3, "media_engagement": 50, "media_profile_visits": 4.0, "media_follows": 1.0, "engagement_rate": 7.37, "weekday": "Monday", "month": "2026-02"}, {"media_id": 18555257881025770, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nós temos todos os motivos pra querer ver sua Kabelera livre e cheia de estilo.", "date": "2026-02-03", "media_like_count": 26, "media_comments_count": 0, "media_reach": 724, "media_views": 2237, "media_saved": 0, "media_shares": 3, "media_engagement": 34, "media_profile_visits": 1.0, "media_follows": 1.0, "engagement_rate": 4.7, "weekday": "Tuesday", "month": "2026-02"}, {"media_id": 18557844565061958, "media_type": "IMAGE", "media_caption": "O boné Kabelera é feito pra quem entende que estilo também é cuidado.", "date": "2026-02-04", "media_like_count": 19, "media_comments_count": 0, "media_reach": 679, "media_views": 2079, "media_saved": 10, "media_shares": 2, "media_engagement": 33, "media_profile_visits": 14.0, "media_follows": 2.0, "engagement_rate": 4.86, "weekday": "Wednesday", "month": "2026-02"}, {"media_id": 18072501206124004, "media_type": "IMAGE", "media_caption": "Touca de banho da Kabelera é acerto! Forro de cetim interno e proteção dupla.", "date": "2026-02-05", "media_like_count": 9, "media_comments_count": 0, "media_reach": 746, "media_views": 2134, "media_saved": 3, "media_shares": 5, "media_engagement": 17, "media_profile_visits": 8.0, "media_follows": 0.0, "engagement_rate": 2.28, "weekday": "Thursday", "month": "2026-02"}, {"media_id": 18188825479358533, "media_type": "VIDEO", "media_caption": "O boné da Kabelera garante conforto para seu cabelo sem danificar os fios.", "date": "2026-02-07", "media_like_count": 40, "media_comments_count": 0, "media_reach": 1358, "media_views": 1576, "media_saved": 11, "media_shares": 11, "media_engagement": 63, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.64, "weekday": "Saturday", "month": "2026-02"}, {"media_id": 18168832585358228, "media_type": "CAROUSEL_ALBUM", "media_caption": "Boné verde Kabelera não é tendência, é vivência. Modelagem aberta.", "date": "2026-02-09", "media_like_count": 27, "media_comments_count": 0, "media_reach": 672, "media_views": 1964, "media_saved": 7, "media_shares": 2, "media_engagement": 37, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 5.51, "weekday": "Monday", "month": "2026-02"}, {"media_id": 18425371615186679, "media_type": "VIDEO", "media_caption": "E AI VOCÊ TAVA POR LÁ? Kabelera marcou presença no @hhwc.br!", "date": "2026-02-11", "media_like_count": 53, "media_comments_count": 6, "media_reach": 1203, "media_views": 1494, "media_saved": 0, "media_shares": 11, "media_engagement": 73, "media_profile_visits": null, "media_follows": null, "engagement_rate": 6.07, "weekday": "Wednesday", "month": "2026-02"}, {"media_id": 17932319562037507, "media_type": "VIDEO", "media_caption": "Boné combina com volume e volume combina com Kabelera!", "date": "2026-02-13", "media_like_count": 34, "media_comments_count": 0, "media_reach": 932, "media_views": 1285, "media_saved": 8, "media_shares": 22, "media_engagement": 65, "media_profile_visits": null, "media_follows": null, "engagement_rate": 6.97, "weekday": "Friday", "month": "2026-02"}, {"media_id": 18101532830494418, "media_type": "VIDEO", "media_caption": "Treino pesado tem que ter fita de cetim Kabelera! Treino do @hhwc.br.", "date": "2026-02-15", "media_like_count": 197, "media_comments_count": 7, "media_reach": 7363, "media_views": 12351, "media_saved": 7, "media_shares": 3, "media_engagement": 215, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.92, "weekday": "Sunday", "month": "2026-02"}, {"media_id": 17895223155259588, "media_type": "VIDEO", "media_caption": "Do rolê no parque, ao treino. O boné que acompanha seu movimento.", "date": "2026-02-17", "media_like_count": 27, "media_comments_count": 2, "media_reach": 1129, "media_views": 1388, "media_saved": 2, "media_shares": 1, "media_engagement": 34, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.01, "weekday": "Tuesday", "month": "2026-02"}, {"media_id": 18088787936136346, "media_type": "VIDEO", "media_caption": "Aqui na Kabelera tem mais que clientes, tem família! Família Kabelera na folia.", "date": "2026-02-18", "media_like_count": 35, "media_comments_count": 4, "media_reach": 2255, "media_views": 2752, "media_saved": 0, "media_shares": 6, "media_engagement": 47, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.08, "weekday": "Wednesday", "month": "2026-02"}, {"media_id": 18074740547455316, "media_type": "CAROUSEL_ALBUM", "media_caption": "Quer um motivo pra ter Kabelera no seu estilo? Vamos te dar 4.", "date": "2026-02-19", "media_like_count": 28, "media_comments_count": 0, "media_reach": 904, "media_views": 1495, "media_saved": 9, "media_shares": 2, "media_engagement": 41, "media_profile_visits": 1.0, "media_follows": 1.0, "engagement_rate": 4.54, "weekday": "Thursday", "month": "2026-02"}, {"media_id": 18113365954655989, "media_type": "IMAGE", "media_caption": "Teve mais Kabelera no bloquinho! @dra.arinagabriela escolheu camurça marrom.", "date": "2026-02-20", "media_like_count": 9, "media_comments_count": 0, "media_reach": 1096, "media_views": 1608, "media_saved": 0, "media_shares": 0, "media_engagement": 9, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 0.82, "weekday": "Friday", "month": "2026-02"}, {"media_id": 18306696856287368, "media_type": "VIDEO", "media_caption": "Vai treinar ou passear, já sabe! Boné Kabelera é o melhor parceiro no @hhwc.br.", "date": "2026-02-21", "media_like_count": 58, "media_comments_count": 3, "media_reach": 1436, "media_views": 1750, "media_saved": 0, "media_shares": 4, "media_engagement": 67, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.67, "weekday": "Saturday", "month": "2026-02"}, {"media_id": 17994136838878978, "media_type": "VIDEO", "media_caption": "Sabe aquele toque final que transforma o visual de verdade? É o boné Kabelera.", "date": "2026-02-24", "media_like_count": 73, "media_comments_count": 9, "media_reach": 2734, "media_views": 3819, "media_saved": 4, "media_shares": 4, "media_engagement": 92, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.37, "weekday": "Tuesday", "month": "2026-02"}, {"media_id": 18082982645256136, "media_type": "IMAGE", "media_caption": "Se tem uma palavra que define o boné de veludo Kabelera é sofisticação!", "date": "2026-02-26", "media_like_count": 23, "media_comments_count": 0, "media_reach": 900, "media_views": 1422, "media_saved": 9, "media_shares": 4, "media_engagement": 37, "media_profile_visits": 4.0, "media_follows": 2.0, "engagement_rate": 4.11, "weekday": "Thursday", "month": "2026-02"}, {"media_id": 18055929260440607, "media_type": "VIDEO", "media_caption": "Se você já deixou de usar boné porque não encaixava, esse vídeo é pra você.", "date": "2026-02-28", "media_like_count": 173, "media_comments_count": 37, "media_reach": 2803, "media_views": 3731, "media_saved": 23, "media_shares": 43, "media_engagement": 288, "media_profile_visits": null, "media_follows": null, "engagement_rate": 10.27, "weekday": "Saturday", "month": "2026-02"}, {"media_id": 18123101110576265, "media_type": "VIDEO", "media_caption": "Liberdade é sobre volume do seu jeito! K bordado verde disponível.", "date": "2026-03-02", "media_like_count": 21, "media_comments_count": 0, "media_reach": 841, "media_views": 963, "media_saved": 4, "media_shares": 0, "media_engagement": 25, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.97, "weekday": "Monday", "month": "2026-03"}, {"media_id": 18110810125737308, "media_type": "VIDEO", "media_caption": "Aqui o cliente tem sempre razão! Toucas de cetim que protegem os fios.", "date": "2026-03-03", "media_like_count": 24, "media_comments_count": 2, "media_reach": 1182, "media_views": 1409, "media_saved": 18, "media_shares": 5, "media_engagement": 49, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.15, "weekday": "Tuesday", "month": "2026-03"}, {"media_id": 18206695084325338, "media_type": "VIDEO", "media_caption": "Tem combinação que não é só look, é declaração de brasilidade. Parceria @felipasbr.", "date": "2026-03-03", "media_like_count": 1, "media_comments_count": 0, "media_reach": 103, "media_views": 122, "media_saved": 0, "media_shares": 0, "media_engagement": 1, "media_profile_visits": null, "media_follows": null, "engagement_rate": 0.97, "weekday": "Tuesday", "month": "2026-03"}, {"media_id": 17998975244856976, "media_type": "CAROUSEL_ALBUM", "media_caption": "Boné Baseball dá o toque que falta. Combinação off white e vinho.", "date": "2026-03-04", "media_like_count": 15, "media_comments_count": 0, "media_reach": 714, "media_views": 1191, "media_saved": 3, "media_shares": 3, "media_engagement": 21, "media_profile_visits": 5.0, "media_follows": 1.0, "engagement_rate": 2.94, "weekday": "Wednesday", "month": "2026-03"}, {"media_id": 18109212781685120, "media_type": "VIDEO", "media_caption": "Nossos bonés favoritos com os óculos da @lunettesbylari. Parceria perfeita.", "date": "2026-03-05", "media_like_count": 26, "media_comments_count": 1, "media_reach": 810, "media_views": 1149, "media_saved": 4, "media_shares": 2, "media_engagement": 33, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.07, "weekday": "Thursday", "month": "2026-03"}, {"media_id": 17941196574151308, "media_type": "VIDEO", "media_caption": "Vocês amaram tanto nosso Dat Hat maleável que trouxemos mais cores! @oliveirasamantha_.", "date": "2026-03-06", "media_like_count": 90, "media_comments_count": 21, "media_reach": 1591, "media_views": 2309, "media_saved": 15, "media_shares": 14, "media_engagement": 143, "media_profile_visits": null, "media_follows": null, "engagement_rate": 8.99, "weekday": "Friday", "month": "2026-03"}, {"media_id": 18060598067361043, "media_type": "VIDEO", "media_caption": "Sensação é de liberdade e puro suco do estilo pra qualquer look.", "date": "2026-03-08", "media_like_count": 56, "media_comments_count": 4, "media_reach": 2484, "media_views": 3327, "media_saved": 3, "media_shares": 4, "media_engagement": 70, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.82, "weekday": "Sunday", "month": "2026-03"}, {"media_id": 17951749542067832, "media_type": "IMAGE", "media_caption": "Já vou os novos bonés maleáveis da linha Dat Hat? Reposição no site.", "date": "2026-03-09", "media_like_count": 21, "media_comments_count": 4, "media_reach": 925, "media_views": 1386, "media_saved": 18, "media_shares": 5, "media_engagement": 49, "media_profile_visits": 6.0, "media_follows": 0.0, "engagement_rate": 5.3, "weekday": "Monday", "month": "2026-03"}, {"media_id": 18109832839775608, "media_type": "VIDEO", "media_caption": "Liberdade pro seu volume é estilo pra sua identidade. A Kabelera acompanha seu lifestyle.", "date": "2026-03-11", "media_like_count": 69, "media_comments_count": 0, "media_reach": 998, "media_views": 1232, "media_saved": 4, "media_shares": 4, "media_engagement": 79, "media_profile_visits": null, "media_follows": null, "engagement_rate": 7.92, "weekday": "Wednesday", "month": "2026-03"}, {"media_id": 17932266198215744, "media_type": "IMAGE", "media_caption": "Estilo que se adapta a você. O Dat Hat é maleável, leve e versátil.", "date": "2026-03-12", "media_like_count": 14, "media_comments_count": 3, "media_reach": 530, "media_views": 818, "media_saved": 3, "media_shares": 0, "media_engagement": 20, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 3.77, "weekday": "Thursday", "month": "2026-03"}, {"media_id": 17940802023155243, "media_type": "VIDEO", "media_caption": "Tem coisa melhor que ver alguém se identificar de verdade com a marca? Depoimento Malu.", "date": "2026-03-13", "media_like_count": 27, "media_comments_count": 5, "media_reach": 947, "media_views": 1213, "media_saved": 4, "media_shares": 5, "media_engagement": 42, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.44, "weekday": "Friday", "month": "2026-03"}, {"media_id": 18093895711855242, "media_type": "VIDEO", "media_caption": "Tem FRETE ESPECIAL por aqui até domingo! Grátis SP, fixo R$9,90 demais regiões.", "date": "2026-03-15", "media_like_count": 11, "media_comments_count": 4, "media_reach": 559, "media_views": 677, "media_saved": 3, "media_shares": 3, "media_engagement": 21, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.76, "weekday": "Sunday", "month": "2026-03"}, {"media_id": 18571991758057306, "media_type": "VIDEO", "media_caption": "Veludo azul, sem esforço. Um boné que acompanha seu estilo e identidade.", "date": "2026-03-17", "media_like_count": 16, "media_comments_count": 1, "media_reach": 828, "media_views": 1211, "media_saved": 2, "media_shares": 1, "media_engagement": 20, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.42, "weekday": "Tuesday", "month": "2026-03"}, {"media_id": 17901624273236264, "media_type": "VIDEO", "media_caption": "Se a @anapaulaxongani aprovou, tá aprovado! Toucas para banho, dormir e dias frios.", "date": "2026-03-18", "media_like_count": 24, "media_comments_count": 1, "media_reach": 1053, "media_views": 1295, "media_saved": 3, "media_shares": 1, "media_engagement": 31, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.94, "weekday": "Wednesday", "month": "2026-03"}, {"media_id": 17929750773232143, "media_type": "IMAGE", "media_caption": "SEMANA DE FRETE ESPECIAL! Aproveita essa oportunidade.", "date": "2026-03-19", "media_like_count": 9, "media_comments_count": 0, "media_reach": 866, "media_views": 1241, "media_saved": 0, "media_shares": 3, "media_engagement": 12, "media_profile_visits": 4.0, "media_follows": 1.0, "engagement_rate": 1.39, "weekday": "Thursday", "month": "2026-03"}, {"media_id": 18083280155342918, "media_type": "IMAGE", "media_caption": "Boné de veludo é premium! Traz muita personalidade ao seu volume.", "date": "2026-03-19", "media_like_count": 15, "media_comments_count": 1, "media_reach": 861, "media_views": 1299, "media_saved": 2, "media_shares": 3, "media_engagement": 21, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 2.44, "weekday": "Thursday", "month": "2026-03"}, {"media_id": 17874792810438428, "media_type": "VIDEO", "media_caption": "Baseball da Kabelera é um dos favoritos! Duas cores especiais off white/vinho e off white/marrom.", "date": "2026-03-20", "media_like_count": 20, "media_comments_count": 1, "media_reach": 854, "media_views": 1130, "media_saved": 4, "media_shares": 7, "media_engagement": 32, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.75, "weekday": "Friday", "month": "2026-03"}, {"media_id": 18211504132321737, "media_type": "IMAGE", "media_caption": "Aquele boné que você queria tanto agora com frete especial! Até domingo.", "date": "2026-03-21", "media_like_count": 9, "media_comments_count": 0, "media_reach": 1011, "media_views": 1520, "media_saved": 4, "media_shares": 8, "media_engagement": 21, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 2.08, "weekday": "Saturday", "month": "2026-03"}, {"media_id": 17917576509325824, "media_type": "VIDEO", "media_caption": "Veludo ou Camurça? @black_caio explica a diferença entre os dois favoritos.", "date": "2026-03-23", "media_like_count": 26, "media_comments_count": 1, "media_reach": 775, "media_views": 961, "media_saved": 3, "media_shares": 3, "media_engagement": 33, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.26, "weekday": "Monday", "month": "2026-03"}, {"media_id": 18076940270389661, "media_type": "VIDEO", "media_caption": "Quando um boné é pensado aqui na Kabelera é mais que um acessório.", "date": "2026-03-25", "media_like_count": 13, "media_comments_count": 0, "media_reach": 579, "media_views": 687, "media_saved": 4, "media_shares": 2, "media_engagement": 19, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.28, "weekday": "Wednesday", "month": "2026-03"}, {"media_id": 18578850679035755, "media_type": "CAROUSEL_ALBUM", "media_caption": "Se vocês falam pra gente é regra! Boné da Kabelera é o feedback de vocês.", "date": "2026-03-26", "media_like_count": 5, "media_comments_count": 0, "media_reach": 547, "media_views": 934, "media_saved": 3, "media_shares": 1, "media_engagement": 9, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 1.65, "weekday": "Thursday", "month": "2026-03"}, {"media_id": 18089750510463850, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nosso boné não é feito apenas pra caber, mas também pra respeitar! Foto @hhwc.br.", "date": "2026-03-27", "media_like_count": 42, "media_comments_count": 3, "media_reach": 928, "media_views": 1678, "media_saved": 1, "media_shares": 2, "media_engagement": 50, "media_profile_visits": 8.0, "media_follows": 0.0, "engagement_rate": 5.39, "weekday": "Friday", "month": "2026-03"}, {"media_id": 18005349482854352, "media_type": "CAROUSEL_ALBUM", "media_caption": "Programa Revista Alesp @assembleiasp sobre Empreendedorismo Jovem.", "date": "2026-03-30", "media_like_count": 149, "media_comments_count": 20, "media_reach": 1707, "media_views": 3150, "media_saved": 0, "media_shares": 2, "media_engagement": 174, "media_profile_visits": 18.0, "media_follows": 3.0, "engagement_rate": 10.19, "weekday": "Monday", "month": "2026-03"}, {"media_id": 17936893533187548, "media_type": "VIDEO", "media_caption": "Baseball é puro estilo! Combinação mais descolada pro look do fim de semana.", "date": "2026-03-31", "media_like_count": 9, "media_comments_count": 0, "media_reach": 813, "media_views": 948, "media_saved": 1, "media_shares": 1, "media_engagement": 11, "media_profile_visits": null, "media_follows": null, "engagement_rate": 1.35, "weekday": "Tuesday", "month": "2026-03"}, {"media_id": 18401032012199728, "media_type": "CAROUSEL_ALBUM", "media_caption": "O camurça vinho tem aquele tom que chama atenção sem precisar gritar.", "date": "2026-04-01", "media_like_count": 12, "media_comments_count": 2, "media_reach": 521, "media_views": 884, "media_saved": 2, "media_shares": 3, "media_engagement": 19, "media_profile_visits": 5.0, "media_follows": 1.0, "engagement_rate": 3.65, "weekday": "Wednesday", "month": "2026-04"}, {"media_id": 18066147557331201, "media_type": "VIDEO", "media_caption": "E tem como não fazer dancinha? Feedback é sinal de que a Kabelera faz certo.", "date": "2026-04-04", "media_like_count": 16, "media_comments_count": 0, "media_reach": 998, "media_views": 1132, "media_saved": 2, "media_shares": 1, "media_engagement": 19, "media_profile_visits": null, "media_follows": null, "engagement_rate": 1.9, "weekday": "Saturday", "month": "2026-04"}, {"media_id": 18126502747575576, "media_type": "VIDEO", "media_caption": "Mais que um boné, é poder ser e pertencer da forma que quiser.", "date": "2026-04-05", "media_like_count": 20, "media_comments_count": 2, "media_reach": 762, "media_views": 907, "media_saved": 1, "media_shares": 1, "media_engagement": 24, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.15, "weekday": "Sunday", "month": "2026-04"}, {"media_id": 18131682103556032, "media_type": "VIDEO", "media_caption": "Duas opções estilosas que não vão sair da sua cabeça! Tops da semana.", "date": "2026-04-06", "media_like_count": 21, "media_comments_count": 0, "media_reach": 923, "media_views": 1089, "media_saved": 0, "media_shares": 0, "media_engagement": 22, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.38, "weekday": "Monday", "month": "2026-04"}, {"media_id": 18433618954140558, "media_type": "IMAGE", "media_caption": "Touca pra você manter o volume no topo! Reforço contra frizz, camada dupla.", "date": "2026-04-06", "media_like_count": 6, "media_comments_count": 0, "media_reach": 840, "media_views": 1263, "media_saved": 3, "media_shares": 2, "media_engagement": 11, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 1.31, "weekday": "Monday", "month": "2026-04"}, {"media_id": 18083240696364969, "media_type": "CAROUSEL_ALBUM", "media_caption": "Sabe aquela cereja no bolo? Aqui tem forma de boné.", "date": "2026-04-08", "media_like_count": 47, "media_comments_count": 0, "media_reach": 1357, "media_views": 2413, "media_saved": 1, "media_shares": 1, "media_engagement": 50, "media_profile_visits": 10.0, "media_follows": 0.0, "engagement_rate": 3.68, "weekday": "Wednesday", "month": "2026-04"}, {"media_id": 18167617510419367, "media_type": "VIDEO", "media_caption": "A touca de banho que todo mundo ama e você não pode ficar sem.", "date": "2026-04-09", "media_like_count": 27, "media_comments_count": 1, "media_reach": 1262, "media_views": 1545, "media_saved": 6, "media_shares": 10, "media_engagement": 44, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.49, "weekday": "Thursday", "month": "2026-04"}, {"media_id": 17902909818244568, "media_type": "IMAGE", "media_caption": "Sexta feira tá liberado boné em todo lugar! Liberdade no volume.", "date": "2026-04-10", "media_like_count": 21, "media_comments_count": 0, "media_reach": 682, "media_views": 978, "media_saved": 4, "media_shares": 2, "media_engagement": 27, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 3.96, "weekday": "Friday", "month": "2026-04"}, {"media_id": 18051024881722894, "media_type": "CAROUSEL_ALBUM", "media_caption": "E rolou mais uma edição do @hhwc.br nosso treino favorito!", "date": "2026-04-12", "media_like_count": 104, "media_comments_count": 2, "media_reach": 1632, "media_views": 2769, "media_saved": 2, "media_shares": 1, "media_engagement": 111, "media_profile_visits": 9.0, "media_follows": 0.0, "engagement_rate": 6.8, "weekday": "Sunday", "month": "2026-04"}, {"media_id": 18126894403517447, "media_type": "CAROUSEL_ALBUM", "media_caption": "Boné e treino combina demais! Edição do @hhwc.br com muitas volumosas.", "date": "2026-04-12", "media_like_count": 72, "media_comments_count": 7, "media_reach": 1292, "media_views": 2119, "media_saved": 1, "media_shares": 6, "media_engagement": 90, "media_profile_visits": 7.0, "media_follows": 5.0, "engagement_rate": 6.97, "weekday": "Sunday", "month": "2026-04"}, {"media_id": 18139398556504138, "media_type": "VIDEO", "media_caption": "No meio do treino do @hhwc.br fizemos o desafio com @rosanee.monique: será que cabe esse volumão?", "date": "2026-04-13", "media_like_count": 47, "media_comments_count": 10, "media_reach": 1565, "media_views": 1860, "media_saved": 3, "media_shares": 5, "media_engagement": 67, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.28, "weekday": "Monday", "month": "2026-04"}, {"media_id": 18095133431131158, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nossa linha de veludo é tudo de bom! Boné diferenciado que traz estilo.", "date": "2026-04-16", "media_like_count": 42, "media_comments_count": 0, "media_reach": 719, "media_views": 1234, "media_saved": 1, "media_shares": 2, "media_engagement": 46, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 6.4, "weekday": "Thursday", "month": "2026-04"}, {"media_id": 18103291651822128, "media_type": "IMAGE", "media_caption": "Aquele boné que se molda ao volume e dia a dia. Dat Hat maleável favorito.", "date": "2026-04-17", "media_like_count": 11, "media_comments_count": 0, "media_reach": 553, "media_views": 806, "media_saved": 1, "media_shares": 4, "media_engagement": 16, "media_profile_visits": 5.0, "media_follows": 2.0, "engagement_rate": 2.89, "weekday": "Friday", "month": "2026-04"}, {"media_id": 18101610878510689, "media_type": "CAROUSEL_ALBUM", "media_caption": "Fim de semana pede um rolê pra relaxar com seu boné Kabelera.", "date": "2026-04-18", "media_like_count": 23, "media_comments_count": 1, "media_reach": 1251, "media_views": 2112, "media_saved": 0, "media_shares": 2, "media_engagement": 28, "media_profile_visits": 8.0, "media_follows": 1.0, "engagement_rate": 2.24, "weekday": "Saturday", "month": "2026-04"}, {"media_id": 18149477815476855, "media_type": "CAROUSEL_ALBUM", "media_caption": "Semana começa mas tem gente com emendinha de feriado pra curtir! Bora pegar o boné.", "date": "2026-04-20", "media_like_count": 21, "media_comments_count": 0, "media_reach": 524, "media_views": 894, "media_saved": 2, "media_shares": 1, "media_engagement": 24, "media_profile_visits": 11.0, "media_follows": 0.0, "engagement_rate": 4.58, "weekday": "Monday", "month": "2026-04"}, {"media_id": 18087727676255155, "media_type": "VIDEO", "media_caption": "Quando o boné serve pra todos os volumes a sensação que vem é liberdade!", "date": "2026-04-22", "media_like_count": 45, "media_comments_count": 1, "media_reach": 1845, "media_views": 2555, "media_saved": 2, "media_shares": 4, "media_engagement": 52, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.82, "weekday": "Wednesday", "month": "2026-04"}, {"media_id": 18070366679659907, "media_type": "VIDEO", "media_caption": "Não importa o tamanho do volume a touca de cetim da Kabelera é sua parceira.", "date": "2026-04-23", "media_like_count": 17, "media_comments_count": 0, "media_reach": 929, "media_views": 1081, "media_saved": 5, "media_shares": 1, "media_engagement": 24, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.58, "weekday": "Thursday", "month": "2026-04"}, {"media_id": 18113425687757691, "media_type": "IMAGE", "media_caption": "TA CHEGANDO! Frete grátis pra todo Brasil por 24h. Fica de olho.", "date": "2026-04-24", "media_like_count": 21, "media_comments_count": 0, "media_reach": 605, "media_views": 918, "media_saved": 2, "media_shares": 1, "media_engagement": 24, "media_profile_visits": 9.0, "media_follows": 0.0, "engagement_rate": 3.97, "weekday": "Friday", "month": "2026-04"}, {"media_id": 18101987296949179, "media_type": "VIDEO", "media_caption": "Fita de cetim é aquele acessório indispensável pro seu volume! Kit pronto no site.", "date": "2026-04-27", "media_like_count": 316, "media_comments_count": 3, "media_reach": 7870, "media_views": 11279, "media_saved": 31, "media_shares": 33, "media_engagement": 384, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.88, "weekday": "Monday", "month": "2026-04"}, {"media_id": 18126064405608840, "media_type": "IMAGE", "media_caption": "Dia do FRETE GRÁTIS na Kabelera é pra você aproveitar. Válido hoje, nacional.", "date": "2026-04-28", "media_like_count": 14, "media_comments_count": 0, "media_reach": 517, "media_views": 779, "media_saved": 2, "media_shares": 2, "media_engagement": 18, "media_profile_visits": 8.0, "media_follows": 0.0, "engagement_rate": 3.48, "weekday": "Tuesday", "month": "2026-04"}, {"media_id": 17887867515497243, "media_type": "CAROUSEL_ALBUM", "media_caption": "Vamos de reposição! Pretinho do poder e Dat Hat verde, preto e creme.", "date": "2026-05-01", "media_like_count": 17, "media_comments_count": 0, "media_reach": 844, "media_views": 1483, "media_saved": 2, "media_shares": 1, "media_engagement": 20, "media_profile_visits": 7.0, "media_follows": 0.0, "engagement_rate": 2.37, "weekday": "Friday", "month": "2026-05"}, {"media_id": 18065805308348215, "media_type": "IMAGE", "media_caption": "Pretinho do poder tá chegando! Próxima semana de volta no site.", "date": "2026-05-02", "media_like_count": 11, "media_comments_count": 0, "media_reach": 513, "media_views": 752, "media_saved": 1, "media_shares": 1, "media_engagement": 13, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 2.53, "weekday": "Saturday", "month": "2026-05"}, {"media_id": 17923978101305522, "media_type": "VIDEO", "media_caption": "O que foi esse fim de semana especial! Edição do @hhwc.br no Rio de Janeiro.", "date": "2026-05-04", "media_like_count": 61, "media_comments_count": 4, "media_reach": 2418, "media_views": 2923, "media_saved": 5, "media_shares": 4, "media_engagement": 76, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.14, "weekday": "Monday", "month": "2026-05"}, {"media_id": 18577726597018543, "media_type": "CAROUSEL_ALBUM", "media_caption": "Temperatura ta baixando! Inverno com liberdade tem touca de frio da Kabelera.", "date": "2026-05-05", "media_like_count": 60, "media_comments_count": 6, "media_reach": 1180, "media_views": 1878, "media_saved": 18, "media_shares": 10, "media_engagement": 95, "media_profile_visits": 26.0, "media_follows": 0.0, "engagement_rate": 8.05, "weekday": "Tuesday", "month": "2026-05"}, {"media_id": 18099244220039960, "media_type": "CAROUSEL_ALBUM", "media_caption": "Quando o assunto é boné de camurça qual é o seu favorito? Linha completa no site.", "date": "2026-05-06", "media_like_count": 20, "media_comments_count": 0, "media_reach": 620, "media_views": 1042, "media_saved": 1, "media_shares": 4, "media_engagement": 25, "media_profile_visits": 1.0, "media_follows": 1.0, "engagement_rate": 4.03, "weekday": "Wednesday", "month": "2026-05"}, {"media_id": 17928516309278099, "media_type": "IMAGE", "media_caption": "Tem movimento, tem Kabelera! Parceira @biancalordelo_ no Rio de Janeiro #tbt.", "date": "2026-05-07", "media_like_count": 20, "media_comments_count": 3, "media_reach": 834, "media_views": 1292, "media_saved": 1, "media_shares": 2, "media_engagement": 26, "media_profile_visits": 6.0, "media_follows": 0.0, "engagement_rate": 3.12, "weekday": "Thursday", "month": "2026-05"}, {"media_id": 18124982623539347, "media_type": "CAROUSEL_ALBUM", "media_caption": "7x1 será que tem? Em clima de copa, vídeo em IA, boné real e oficial Kabelera!", "date": "2026-05-11", "media_like_count": 116, "media_comments_count": 8, "media_reach": 3499, "media_views": 6659, "media_saved": 2, "media_shares": 7, "media_engagement": 137, "media_profile_visits": 17.0, "media_follows": 1.0, "engagement_rate": 3.92, "weekday": "Monday", "month": "2026-05"}, {"media_id": 17899837506281952, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nossa linha tá completa no site! Todas as cores do Dat Hat maleável disponíveis.", "date": "2026-05-12", "media_like_count": 24, "media_comments_count": 0, "media_reach": 650, "media_views": 1123, "media_saved": 3, "media_shares": 14, "media_engagement": 41, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 6.31, "weekday": "Tuesday", "month": "2026-05"}, {"media_id": 18098463947110703, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nossos queridinhos voltaram com a linha completa! Dat Hat clássico no site.", "date": "2026-05-13", "media_like_count": 12, "media_comments_count": 0, "media_reach": 516, "media_views": 890, "media_saved": 0, "media_shares": 2, "media_engagement": 14, "media_profile_visits": 2.0, "media_follows": 1.0, "engagement_rate": 2.71, "weekday": "Wednesday", "month": "2026-05"}, {"media_id": 18391432378094826, "media_type": "VIDEO", "media_caption": "Clássico está de volta! Pretinho do Poder disponível para garantir o seu.", "date": "2026-05-14", "media_like_count": 13, "media_comments_count": 0, "media_reach": 621, "media_views": 709, "media_saved": 1, "media_shares": 0, "media_engagement": 14, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.25, "weekday": "Thursday", "month": "2026-05"}, {"media_id": 18104280221302437, "media_type": "IMAGE", "media_caption": "As toucas mais reforçadas e com tamanhos especiais para todos os volumes.", "date": "2026-05-16", "media_like_count": 14, "media_comments_count": 0, "media_reach": 717, "media_views": 1077, "media_saved": 1, "media_shares": 1, "media_engagement": 16, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 2.23, "weekday": "Saturday", "month": "2026-05"}, {"media_id": 17998372130944039, "media_type": "IMAGE", "media_caption": "Favoritos do nosso domingão! Qual combina com sua Kabelera?", "date": "2026-05-17", "media_like_count": 9, "media_comments_count": 0, "media_reach": 488, "media_views": 735, "media_saved": 2, "media_shares": 0, "media_engagement": 12, "media_profile_visits": 3.0, "media_follows": 1.0, "engagement_rate": 2.46, "weekday": "Sunday", "month": "2026-05"}, {"media_id": 18091050188002928, "media_type": "IMAGE", "media_caption": "Tem boné que, quando volta para o site, não permanece por muito tempo. Modelos favoritos de volta.", "date": "2026-05-18", "media_like_count": 31, "media_comments_count": 0, "media_reach": 1155, "media_views": 1818, "media_saved": 7, "media_shares": 3, "media_engagement": 42, "media_profile_visits": 31.0, "media_follows": 4.0, "engagement_rate": 3.64, "weekday": "Monday", "month": "2026-05"}, {"media_id": 18086637557065196, "media_type": "IMAGE", "media_caption": "Saiu a lista de convocados da Kabelera pra você torcer nessa Copa 2026!", "date": "2026-05-19", "media_like_count": 22, "media_comments_count": 0, "media_reach": 1090, "media_views": 1668, "media_saved": 5, "media_shares": 6, "media_engagement": 35, "media_profile_visits": 8.0, "media_follows": 2.0, "engagement_rate": 3.21, "weekday": "Tuesday", "month": "2026-05"}, {"media_id": 18097032503127344, "media_type": "CAROUSEL_ALBUM", "media_caption": "Nossos veteranos estão na lista pra garantir a energia e o volume na sua torcida!", "date": "2026-05-21", "media_like_count": 15, "media_comments_count": 3, "media_reach": 525, "media_views": 901, "media_saved": 2, "media_shares": 5, "media_engagement": 25, "media_profile_visits": 17.0, "media_follows": 3.0, "engagement_rate": 4.76, "weekday": "Thursday", "month": "2026-05"}, {"media_id": 18089580614035519, "media_type": "IMAGE", "media_caption": "Nosso Brazuca já está com pré venda! Reserva já o seu boné pro lançamento 29/5.", "date": "2026-05-22", "media_like_count": 29, "media_comments_count": 3, "media_reach": 631, "media_views": 1038, "media_saved": 1, "media_shares": 2, "media_engagement": 35, "media_profile_visits": 8.0, "media_follows": 0.0, "engagement_rate": 5.55, "weekday": "Friday", "month": "2026-05"}, {"media_id": 18082394462412032, "media_type": "VIDEO", "media_caption": "E o domingão foi de papo e @churrasdaspretas! Se tem rolê, tem Kabelera.", "date": "2026-05-26", "media_like_count": 42, "media_comments_count": 0, "media_reach": 1452, "media_views": 1953, "media_saved": 1, "media_shares": 0, "media_engagement": 44, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.03, "weekday": "Tuesday", "month": "2026-05"}, {"media_id": 18138639214472328, "media_type": "IMAGE", "media_caption": "Leve, confortável e feito pra quem nunca se encaixou nos bonés comuns.", "date": "2026-05-28", "media_like_count": 10, "media_comments_count": 0, "media_reach": 550, "media_views": 873, "media_saved": 0, "media_shares": 4, "media_engagement": 14, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 2.55, "weekday": "Thursday", "month": "2026-05"}, {"media_id": 18081100544551423, "media_type": "CAROUSEL_ALBUM", "media_caption": "Temporada de inverno pede boné de camurça para um estilo completo 😉 Bora garantir o seu no site!", "date": "2026-06-01", "media_like_count": 19, "media_comments_count": 0, "media_reach": 544, "media_views": 974, "media_saved": 3, "media_shares": 1, "media_engagement": 23, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 4.23, "weekday": "Monday", "month": "2026-06"}, {"media_id": 18051769349759140, "media_type": "VIDEO", "media_caption": "🇧🇷🔥 Os convocados da Copa já estão na vitrine da Kabelera. E o Boné Brazuca é o camisa 10 dessa seleção. ⚽💚💛", "date": "2026-06-02", "media_like_count": 24, "media_comments_count": 1, "media_reach": 959, "media_views": 1258, "media_saved": 1, "media_shares": 4, "media_engagement": 33, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.44, "weekday": "Tuesday", "month": "2026-06"}, {"media_id": 17930375613297447, "media_type": "IMAGE", "media_caption": "Boné aliado na torcida? Temos 🇧🇷 Escolhe seu convocado e se prepara pra vibrar com a gente.", "date": "2026-06-03", "media_like_count": 13, "media_comments_count": 0, "media_reach": 716, "media_views": 1128, "media_saved": 2, "media_shares": 5, "media_engagement": 21, "media_profile_visits": 6.0, "media_follows": 1.0, "engagement_rate": 2.93, "weekday": "Wednesday", "month": "2026-06"}, {"media_id": 18097038818582318, "media_type": "VIDEO", "media_caption": "Cabelos com volume também merecem uma torcida à altura.🇧🇷🇧🇷", "date": "2026-06-04", "media_like_count": 58, "media_comments_count": 8, "media_reach": 1811, "media_views": 2600, "media_saved": 2, "media_shares": 1, "media_engagement": 73, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.03, "weekday": "Thursday", "month": "2026-06"}, {"media_id": 17992989956966628, "media_type": "IMAGE", "media_caption": "❤️🇧🇷 Se não tem boné pro casal torcer junto não tem graça.", "date": "2026-06-05", "media_like_count": 41, "media_comments_count": 1, "media_reach": 1920, "media_views": 3045, "media_saved": 1, "media_shares": 3, "media_engagement": 46, "media_profile_visits": 16.0, "media_follows": 0.0, "engagement_rate": 2.4, "weekday": "Friday", "month": "2026-06"}, {"media_id": 17900355084298300, "media_type": "CAROUSEL_ALBUM", "media_caption": "🇧🇷 Tem coisa que a gente veste, e tem coisa que a gente carrega na alma. #boneBrazuca", "date": "2026-06-06", "media_like_count": 162, "media_comments_count": 9, "media_reach": 3154, "media_views": 6809, "media_saved": 7, "media_shares": 8, "media_engagement": 189, "media_profile_visits": 28.0, "media_follows": 0.0, "engagement_rate": 5.99, "weekday": "Saturday", "month": "2026-06"}, {"media_id": 18044879327583077, "media_type": "IMAGE", "media_caption": "Pausa no verde amarelo pra dizer que o amor está no ar!❤️ Kit especial da Kabelera!", "date": "2026-06-07", "media_like_count": 18, "media_comments_count": 0, "media_reach": 998, "media_views": 1463, "media_saved": 0, "media_shares": 1, "media_engagement": 20, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 2.0, "weekday": "Sunday", "month": "2026-06"}, {"media_id": 17936603001256834, "media_type": "CAROUSEL_ALBUM", "media_caption": "Camurça marrom é aquele boné pra todo momento é que todo mundo curte 🤎 Top 1.", "date": "2026-06-08", "media_like_count": 17, "media_comments_count": 1, "media_reach": 608, "media_views": 1091, "media_saved": 2, "media_shares": 2, "media_engagement": 22, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 3.62, "weekday": "Monday", "month": "2026-06"}, {"media_id": 17892950577501928, "media_type": "CAROUSEL_ALBUM", "media_caption": "Tem muita torcida, mas tem amor no ar! Presente especial 🥰❤️", "date": "2026-06-09", "media_like_count": 30, "media_comments_count": 0, "media_reach": 734, "media_views": 1344, "media_saved": 4, "media_shares": 2, "media_engagement": 36, "media_profile_visits": 6.0, "media_follows": 0.0, "engagement_rate": 4.9, "weekday": "Tuesday", "month": "2026-06"}, {"media_id": 17953774152159123, "media_type": "VIDEO", "media_caption": "Modelo mais especial que o outro pra dar match com seu estilo. Cores vinho, marrom e preto.", "date": "2026-06-11", "media_like_count": 6, "media_comments_count": 0, "media_reach": 542, "media_views": 665, "media_saved": 1, "media_shares": 0, "media_engagement": 7, "media_profile_visits": null, "media_follows": null, "engagement_rate": 1.29, "weekday": "Thursday", "month": "2026-06"}, {"media_id": 17914520421203869, "media_type": "CAROUSEL_ALBUM", "media_caption": "A sexta chegou com S de saudade de um rolê! Dia dos namorados.", "date": "2026-06-12", "media_like_count": 19, "media_comments_count": 0, "media_reach": 483, "media_views": 829, "media_saved": 1, "media_shares": 1, "media_engagement": 21, "media_profile_visits": 0.0, "media_follows": 0.0, "engagement_rate": 4.35, "weekday": "Friday", "month": "2026-06"}, {"media_id": 17929749666300312, "media_type": "VIDEO", "media_caption": "O boné de camurça marrom é o nosso #Top1 🤎 favorito da galera.", "date": "2026-06-12", "media_like_count": 21, "media_comments_count": 2, "media_reach": 723, "media_views": 866, "media_saved": 3, "media_shares": 2, "media_engagement": 28, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.87, "weekday": "Friday", "month": "2026-06"}, {"media_id": 18145372234456738, "media_type": "IMAGE", "media_caption": "Hoje é o dia do bate coração! Garanta seu Brazuca.", "date": "2026-06-13", "media_like_count": 39, "media_comments_count": 0, "media_reach": 1297, "media_views": 2053, "media_saved": 0, "media_shares": 2, "media_engagement": 45, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 3.47, "weekday": "Saturday", "month": "2026-06"}, {"media_id": 18004143668752155, "media_type": "CAROUSEL_ALBUM", "media_caption": "Domingar e passear! O dat hat é esse melhor amigo, aliado pra todo movimento.", "date": "2026-06-14", "media_like_count": 38, "media_comments_count": 0, "media_reach": 1154, "media_views": 2438, "media_saved": 2, "media_shares": 2, "media_engagement": 43, "media_profile_visits": 19.0, "media_follows": 0.0, "engagement_rate": 3.73, "weekday": "Sunday", "month": "2026-06"}, {"media_id": 18299026081303556, "media_type": "VIDEO", "media_caption": "Vamo calcular um custo e benefício da nossa touca de banho?", "date": "2026-06-16", "media_like_count": 35, "media_comments_count": 2, "media_reach": 840, "media_views": 1118, "media_saved": 3, "media_shares": 7, "media_engagement": 47, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.6, "weekday": "Tuesday", "month": "2026-06"}, {"media_id": 17894500977524376, "media_type": "VIDEO", "media_caption": "Hoje é quinta feira e vai rolar um #tbt especial! O Poder da Kabelera.", "date": "2026-06-18", "media_like_count": 22, "media_comments_count": 0, "media_reach": 696, "media_views": 793, "media_saved": 1, "media_shares": 0, "media_engagement": 23, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.3, "weekday": "Thursday", "month": "2026-06"}, {"media_id": 18012782744857697, "media_type": "IMAGE", "media_caption": "Amanhã é dia de torcida volumosa? Vem pro site e entra no clima.", "date": "2026-06-18", "media_like_count": 27, "media_comments_count": 2, "media_reach": 697, "media_views": 1069, "media_saved": 4, "media_shares": 1, "media_engagement": 34, "media_profile_visits": 10.0, "media_follows": 2.0, "engagement_rate": 4.88, "weekday": "Thursday", "month": "2026-06"}, {"media_id": 17959985465962199, "media_type": "IMAGE", "media_caption": "É hoje hein! No melhor estilo copa o sextou entra no clima.", "date": "2026-06-19", "media_like_count": 16, "media_comments_count": 0, "media_reach": 581, "media_views": 916, "media_saved": 2, "media_shares": 1, "media_engagement": 20, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 3.44, "weekday": "Friday", "month": "2026-06"}, {"media_id": 18101252423172528, "media_type": "IMAGE", "media_caption": "Bora segunda com clássico do Pretinho do Poder! 🙏🏾", "date": "2026-06-22", "media_like_count": 11, "media_comments_count": 0, "media_reach": 497, "media_views": 766, "media_saved": 2, "media_shares": 3, "media_engagement": 16, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 3.22, "weekday": "Monday", "month": "2026-06"}, {"media_id": 17955372344983198, "media_type": "CAROUSEL_ALBUM", "media_caption": "Bora para seus Favoritos? Vai de vinho ❤️ Ou de Camurça Marrom 🤎", "date": "2026-06-23", "media_like_count": 21, "media_comments_count": 0, "media_reach": 520, "media_views": 941, "media_saved": 5, "media_shares": 2, "media_engagement": 28, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 5.38, "weekday": "Tuesday", "month": "2026-06"}, {"media_id": 18163200340449928, "media_type": "IMAGE", "media_caption": "Hoje dia de vestir o uniforme dos volumosos? Bolão de palpite nos stories valendo um Brazuca.", "date": "2026-06-24", "media_like_count": 11, "media_comments_count": 2, "media_reach": 431, "media_views": 655, "media_saved": 0, "media_shares": 5, "media_engagement": 19, "media_profile_visits": 9.0, "media_follows": 0.0, "engagement_rate": 4.41, "weekday": "Wednesday", "month": "2026-06"}, {"media_id": 18199833541321442, "media_type": "VIDEO", "media_caption": "Dat Hat verde é um dos convocados pra torcida nessa Copa.", "date": "2026-06-29", "media_like_count": 19, "media_comments_count": 1, "media_reach": 522, "media_views": 609, "media_saved": 7, "media_shares": 4, "media_engagement": 32, "media_profile_visits": null, "media_follows": null, "engagement_rate": 6.13, "weekday": "Monday", "month": "2026-06"}, {"media_id": 18156496780482884, "media_type": "CAROUSEL_ALBUM", "media_caption": "Ainda dá tempo de escolher o boné que vai combinar com a sua torcida!", "date": "2026-06-30", "media_like_count": 15, "media_comments_count": 0, "media_reach": 948, "media_views": 1710, "media_saved": 1, "media_shares": 3, "media_engagement": 20, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 2.11, "weekday": "Tuesday", "month": "2026-06"}, {"media_id": 17934935235085362, "media_type": "IMAGE", "media_caption": "De olho no volume e na torcida do próximo fim de semana! Camurça marrom.", "date": "2026-07-02", "media_like_count": 17, "media_comments_count": 4, "media_reach": 631, "media_views": 885, "media_saved": 3, "media_shares": 1, "media_engagement": 25, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 3.96, "weekday": "Thursday", "month": "2026-07"}, {"media_id": 18094550765014395, "media_type": "VIDEO", "media_caption": "Fim de semana, Copa na tela e o estilo entra em campo. ⚽🧢", "date": "2026-07-03", "media_like_count": 16, "media_comments_count": 0, "media_reach": 789, "media_views": 874, "media_saved": 3, "media_shares": 1, "media_engagement": 21, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.66, "weekday": "Friday", "month": "2026-07"}, {"media_id": 18471915412111201, "media_type": "IMAGE", "media_caption": "Bora que vai rolar torcida! Bolão valendo um BRAZUCA.", "date": "2026-07-05", "media_like_count": 19, "media_comments_count": 0, "media_reach": 736, "media_views": 1117, "media_saved": 2, "media_shares": 0, "media_engagement": 22, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 2.99, "weekday": "Sunday", "month": "2026-07"}, {"media_id": 18399710215080652, "media_type": "IMAGE", "media_caption": "Esse trio aqui é poderoso 🔥 Baseball ou Camurça!", "date": "2026-07-06", "media_like_count": 13, "media_comments_count": 0, "media_reach": 769, "media_views": 1125, "media_saved": 0, "media_shares": 2, "media_engagement": 15, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 1.95, "weekday": "Monday", "month": "2026-07"}, {"media_id": 18075242570491078, "media_type": "IMAGE", "media_caption": "Seu cabelo merece um boné pensado para ele. Dat Hat Bege.", "date": "2026-07-07", "media_like_count": 11, "media_comments_count": 0, "media_reach": 348, "media_views": 487, "media_saved": 2, "media_shares": 2, "media_engagement": 15, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 4.31, "weekday": "Tuesday", "month": "2026-07"}, {"media_id": 18169305406433043, "media_type": "CAROUSEL_ALBUM", "media_caption": "Hoje é dia de movimentar! O boné que te acompanha no treino.", "date": "2026-07-11", "media_like_count": 19, "media_comments_count": 0, "media_reach": 580, "media_views": 1146, "media_saved": 2, "media_shares": 0, "media_engagement": 21, "media_profile_visits": 13.0, "media_follows": 0.0, "engagement_rate": 3.62, "weekday": "Saturday", "month": "2026-07"}, {"media_id": 18121017076744964, "media_type": "CAROUSEL_ALBUM", "media_caption": "Segura aquele clássico! Os pretinhos da Kabelera são os melhores amigos da semana.", "date": "2026-07-13", "media_like_count": 9, "media_comments_count": 0, "media_reach": 435, "media_views": 781, "media_saved": 1, "media_shares": 1, "media_engagement": 11, "media_profile_visits": 6.0, "media_follows": 0.0, "engagement_rate": 2.53, "weekday": "Monday", "month": "2026-07"}, {"media_id": 17898141189536725, "media_type": "CAROUSEL_ALBUM", "media_caption": "A Kabelera marcou presença na Edição 2 do @hhwc.br no RJ!", "date": "2026-07-14", "media_like_count": 23, "media_comments_count": 0, "media_reach": 478, "media_views": 946, "media_saved": 2, "media_shares": 1, "media_engagement": 26, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 5.44, "weekday": "Tuesday", "month": "2026-07"}, {"media_id": 18087300635650152, "media_type": "CAROUSEL_ALBUM", "media_caption": "MA-LE-Á-VEL é o nosso Dat Hat vinho.", "date": "2026-07-16", "media_like_count": 10, "media_comments_count": 0, "media_reach": 273, "media_views": 542, "media_saved": 1, "media_shares": 1, "media_engagement": 12, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 4.4, "weekday": "Thursday", "month": "2026-07"}, {"media_id": 18604494586026625, "media_type": "CAROUSEL_ALBUM", "media_caption": "Conforto com Dat Hat da nossa linha maleável!", "date": "2026-07-16", "media_like_count": 4, "media_comments_count": 0, "media_reach": 244, "media_views": 426, "media_saved": 3, "media_shares": 1, "media_engagement": 8, "media_profile_visits": 0.0, "media_follows": 0.0, "engagement_rate": 3.28, "weekday": "Thursday", "month": "2026-07"}, {"media_id": 18092284571618636, "media_type": "VIDEO", "media_caption": "A família falou tá falado! Camurça Marrom é tudo.", "date": "2026-07-16", "media_like_count": 10, "media_comments_count": 0, "media_reach": 489, "media_views": 579, "media_saved": 1, "media_shares": 3, "media_engagement": 14, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.86, "weekday": "Thursday", "month": "2026-07"}, {"media_id": 18144130846526664, "media_type": "VIDEO", "media_caption": "Não você dizer que não encontra um boné que respeita o volume do seu cabelo.", "date": "2026-07-17", "media_like_count": 5, "media_comments_count": 0, "media_reach": 444, "media_views": 596, "media_saved": 3, "media_shares": 1, "media_engagement": 9, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.03, "weekday": "Friday", "month": "2026-07"}, {"media_id": 18107813537077373, "media_type": "CAROUSEL_ALBUM", "media_caption": "Veludo combinado com seu volume traz um estilo poderoso demais.", "date": "2026-07-18", "media_like_count": 3, "media_comments_count": 0, "media_reach": 383, "media_views": 718, "media_saved": 0, "media_shares": 1, "media_engagement": 4, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 1.04, "weekday": "Saturday", "month": "2026-07"}, {"media_id": 18129316714632166, "media_type": "VIDEO", "media_caption": "A revolução é crespa, cacheada e com volume aqui na Kabelera.", "date": "2026-07-20", "media_like_count": 17, "media_comments_count": 0, "media_reach": 466, "media_views": 592, "media_saved": 1, "media_shares": 1, "media_engagement": 21, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.51, "weekday": "Monday", "month": "2026-07"}, {"media_id": 17912654010239722, "media_type": "VIDEO", "media_caption": "Pretinho é poder! E poder de volume você tem aqui na Kabelera.", "date": "2026-07-21", "media_like_count": 12, "media_comments_count": 2, "media_reach": 502, "media_views": 628, "media_saved": 1, "media_shares": 0, "media_engagement": 16, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.19, "weekday": "Tuesday", "month": "2026-07"}, {"media_id": 18144856369554647, "media_type": "IMAGE", "media_caption": "Boné Baseball Kabelera | Disponível no site 😉", "date": "2026-07-21", "media_like_count": 12, "media_comments_count": 0, "media_reach": 299, "media_views": 473, "media_saved": 1, "media_shares": 2, "media_engagement": 16, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 5.35, "weekday": "Tuesday", "month": "2026-07"}, {"media_id": 17957007531173654, "media_type": "VIDEO", "media_caption": "Vai dar CLOSE na praia no fim de semana? Boné que não amassa seu volume.", "date": "2026-07-23", "media_like_count": 91, "media_comments_count": 5, "media_reach": 3450, "media_views": 5138, "media_saved": 5, "media_shares": 3, "media_engagement": 108, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.13, "weekday": "Thursday", "month": "2026-07"}, {"media_id": 18073058105426152, "media_type": "VIDEO", "media_caption": "Mais espaço, proteção contra a água e conforto para tranças, dreads e cabelos volumosos. Garanta a sua no site.", "date": "2026-08-01", "media_like_count": 21, "media_comments_count": 1, "media_reach": 1000, "media_views": 1157, "media_saved": 1, "media_shares": 1, "media_engagement": 25, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.5, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18110688368082884, "media_type": "CAROUSEL_ALBUM", "media_caption": "Estilo que acompanha você e a sua KABELERA. O Dad Hat Maleável une conforto, leveza e caimento.", "date": "2026-08-03", "media_like_count": 6, "media_comments_count": 0, "media_reach": 259, "media_views": 535, "media_saved": 3, "media_shares": 1, "media_engagement": 10, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 3.86, "weekday": "Monday", "month": "2026-08"}, {"media_id": 17970386117932676, "media_type": "VIDEO", "media_caption": "O Dad Hat Maleável tem estrutura flexível, caimento leve e se adapta à seu volume com muito estilo.", "date": "2026-08-03", "media_like_count": 6, "media_comments_count": 0, "media_reach": 465, "media_views": 570, "media_saved": 0, "media_shares": 1, "media_engagement": 7, "media_profile_visits": null, "media_follows": null, "engagement_rate": 1.51, "weekday": "Monday", "month": "2026-08"}, {"media_id": 17995557510005725, "media_type": "CAROUSEL_ALBUM", "media_caption": "Os favoritos da Kabelera tem nome bonés de camurça! Se liga no nosso camurça vinho.", "date": "2026-08-04", "media_like_count": 12, "media_comments_count": 0, "media_reach": 338, "media_views": 652, "media_saved": 1, "media_shares": 3, "media_engagement": 16, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 4.73, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 17900621805541588, "media_type": "CAROUSEL_ALBUM", "media_caption": "O Pretinho do Poder foi pensado para valorizar o que já é grande: a sua KABELERA.", "date": "2026-08-05", "media_like_count": 7, "media_comments_count": 0, "media_reach": 313, "media_views": 660, "media_saved": 0, "media_shares": 0, "media_engagement": 7, "media_profile_visits": 3.0, "media_follows": 0.0, "engagement_rate": 2.24, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18190228201348804, "media_type": "CAROUSEL_ALBUM", "media_caption": "Sabe o favorito dos favoritos? Temos! Quem aqui não adora o boné de camurça marrom?", "date": "2026-08-06", "media_like_count": 11, "media_comments_count": 0, "media_reach": 379, "media_views": 720, "media_saved": 1, "media_shares": 0, "media_engagement": 14, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 3.69, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 18106067381156234, "media_type": "VIDEO", "media_caption": "Boné com cara de boné! Se liga no camurça marrom e separa o seu!", "date": "2026-08-06", "media_like_count": 18, "media_comments_count": 0, "media_reach": 583, "media_views": 810, "media_saved": 3, "media_shares": 2, "media_engagement": 23, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.95, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 18027790223891228, "media_type": "VIDEO", "media_caption": "Mais espaço, conforto e estilo para cabelos que não nasceram para ser escondidos.", "date": "2026-08-07", "media_like_count": 30, "media_comments_count": 0, "media_reach": 628, "media_views": 765, "media_saved": 3, "media_shares": 9, "media_engagement": 44, "media_profile_visits": null, "media_follows": null, "engagement_rate": 7.01, "weekday": "Friday", "month": "2026-08"}, {"media_id": 17900626959512991, "media_type": "CAROUSEL_ALBUM", "media_caption": "Pega seu boné Kabelera, faça aos poucos mas faça! Abrace o movimento que fortalece seu corpo.", "date": "2026-08-08", "media_like_count": 9, "media_comments_count": 0, "media_reach": 439, "media_views": 923, "media_saved": 0, "media_shares": 1, "media_engagement": 10, "media_profile_visits": 0.0, "media_follows": 0.0, "engagement_rate": 2.28, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18043113704611724, "media_type": "VIDEO", "media_caption": "Seu cabelo não precisa se adaptar, a Kabelera é que se adapta a ele. Para tranças, dreads, cachos e black power.", "date": "2026-08-08", "media_like_count": 115, "media_comments_count": 0, "media_reach": 1775, "media_views": 2073, "media_saved": 11, "media_shares": 3, "media_engagement": 135, "media_profile_visits": null, "media_follows": null, "engagement_rate": 7.61, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18163716304461314, "media_type": "VIDEO", "media_caption": "Da pra arrastar muito nos penteados com o boné. Conta pra qual você quer fazer.", "date": "2026-08-10", "media_like_count": 19, "media_comments_count": 0, "media_reach": 559, "media_views": 737, "media_saved": 2, "media_shares": 1, "media_engagement": 23, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.11, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18097739327017021, "media_type": "CAROUSEL_ALBUM", "media_caption": "Um básico nada básico. Boné de camurça traz textura, personalidade e conforto.", "date": "2026-08-11", "media_like_count": 9, "media_comments_count": 0, "media_reach": 385, "media_views": 814, "media_saved": 0, "media_shares": 1, "media_engagement": 11, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 2.86, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 18097710509024259, "media_type": "VIDEO", "media_caption": "Essa é a peça que não pode faltar na cabeça de toda volumosa crespa ou cacheada!", "date": "2026-08-11", "media_like_count": 22, "media_comments_count": 0, "media_reach": 498, "media_views": 654, "media_saved": 3, "media_shares": 2, "media_engagement": 27, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.42, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 18612253618034634, "media_type": "CAROUSEL_ALBUM", "media_caption": "Bonés e acessórios pensados para respeitar diferentes volumes e valorizar cada identidade.", "date": "2026-08-11", "media_like_count": 16, "media_comments_count": 0, "media_reach": 338, "media_views": 674, "media_saved": 2, "media_shares": 2, "media_engagement": 20, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 5.92, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 18090241547370067, "media_type": "VIDEO", "media_caption": "A Kabelera cria bonés e acessórios que se adaptam aos cabelos crespos, cacheados, tranças e dreads.", "date": "2026-08-12", "media_like_count": 39, "media_comments_count": 0, "media_reach": 782, "media_views": 942, "media_saved": 3, "media_shares": 6, "media_engagement": 48, "media_profile_visits": null, "media_follows": null, "engagement_rate": 6.14, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18106595480150872, "media_type": "VIDEO", "media_caption": "Seu cabelo não precisa se adaptar ao acessório. Visite o site e escolha o modelo que combina com você!", "date": "2026-08-12", "media_like_count": 103, "media_comments_count": 1, "media_reach": 1588, "media_views": 1857, "media_saved": 4, "media_shares": 6, "media_engagement": 117, "media_profile_visits": null, "media_follows": null, "engagement_rate": 7.37, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 17982722577109701, "media_type": "VIDEO", "media_caption": "Boné bom é aquele que respeita o volume, protege a finalização e acompanha seu estilo.", "date": "2026-08-12", "media_like_count": 12, "media_comments_count": 0, "media_reach": 264, "media_views": 297, "media_saved": 1, "media_shares": 0, "media_engagement": 14, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.3, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18076113545701975, "media_type": "CAROUSEL_ALBUM", "media_caption": "Sempre tem um Dat Hat pra combinar com sua melhor versão. Qual o seu favorito?", "date": "2026-08-13", "media_like_count": 14, "media_comments_count": 0, "media_reach": 359, "media_views": 734, "media_saved": 1, "media_shares": 1, "media_engagement": 18, "media_profile_visits": 5.0, "media_follows": 0.0, "engagement_rate": 5.01, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 18097175123269195, "media_type": "VIDEO", "media_caption": "Bora pro look de sexta? Qualquer rolê combina com Dat Hat pra dar aquele toque final!", "date": "2026-08-14", "media_like_count": 9, "media_comments_count": 0, "media_reach": 300, "media_views": 368, "media_saved": 0, "media_shares": 0, "media_engagement": 11, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.67, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18106569188517516, "media_type": "CAROUSEL_ALBUM", "media_caption": "Sexta é dia de queridinho Kabelera nas cores verde, bege e preta.", "date": "2026-08-14", "media_like_count": 17, "media_comments_count": 0, "media_reach": 292, "media_views": 580, "media_saved": 1, "media_shares": 1, "media_engagement": 19, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 6.51, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18063869639770336, "media_type": "VIDEO", "media_caption": "Várias inspirações com um boné tipo de linha. Bora garantir o seu no site.", "date": "2026-08-14", "media_like_count": 27, "media_comments_count": 0, "media_reach": 763, "media_views": 927, "media_saved": 0, "media_shares": 1, "media_engagement": 28, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.67, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18033543101826738, "media_type": "VIDEO", "media_caption": "Bonés e acessórios pensados para respeitar diferentes volumes e valorizar cada identidade.", "date": "2026-08-15", "media_like_count": 24, "media_comments_count": 0, "media_reach": 518, "media_views": 650, "media_saved": 1, "media_shares": 1, "media_engagement": 26, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.02, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18025374545685454, "media_type": "VIDEO", "media_caption": "Bora começar com aquela corrida esperta e com boné que cabe na rotina.", "date": "2026-08-17", "media_like_count": 46, "media_comments_count": 0, "media_reach": 1376, "media_views": 1657, "media_saved": 1, "media_shares": 2, "media_engagement": 52, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.78, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18089017916445542, "media_type": "VIDEO", "media_caption": "Seu cabelo com dread, cacheado ou crespo e seu estilo merecem liberdade e conforto todos os dias!", "date": "2026-08-17", "media_like_count": 10, "media_comments_count": 0, "media_reach": 406, "media_views": 472, "media_saved": 0, "media_shares": 0, "media_engagement": 10, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.46, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18610707613005533, "media_type": "IMAGE", "media_caption": "Formato anatômico e minimalista. Boné com visual clean para diferentes estilos.", "date": "2026-08-17", "media_like_count": 17, "media_comments_count": 1, "media_reach": 593, "media_views": 930, "media_saved": 3, "media_shares": 1, "media_engagement": 22, "media_profile_visits": 2.0, "media_follows": 0.0, "engagement_rate": 3.71, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18160038853472530, "media_type": "VIDEO", "media_caption": "PRÉ VENDA NO AR! Desconto de até 30% OFF na compra antecipada. Comprou antes, paga menos.", "date": "2026-08-18", "media_like_count": 8, "media_comments_count": 0, "media_reach": 292, "media_views": 378, "media_saved": 0, "media_shares": 1, "media_engagement": 9, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.08, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 17900602317350019, "media_type": "VIDEO", "media_caption": "Boné K-Bordado 2.0 Marrom tá de volta na pré venda! Reserve o seu com desconto especial.", "date": "2026-08-18", "media_like_count": 10, "media_comments_count": 0, "media_reach": 331, "media_views": 382, "media_saved": 0, "media_shares": 0, "media_engagement": 10, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.02, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 18130313419710515, "media_type": "CAROUSEL_ALBUM", "media_caption": "Favorito do fim de ano, o boné branco tá de volta na nossa pré venda! Estoque limitado.", "date": "2026-08-19", "media_like_count": 6, "media_comments_count": 0, "media_reach": 233, "media_views": 412, "media_saved": 1, "media_shares": 0, "media_engagement": 7, "media_profile_visits": 1.0, "media_follows": 0.0, "engagement_rate": 3.0, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18092180711532989, "media_type": "VIDEO", "media_caption": "Sabe aquele acessório que você não vai tirar da cabeça? Boné de camurça marrom com 30% OFF na Pré Venda.", "date": "2026-08-19", "media_like_count": 14, "media_comments_count": 0, "media_reach": 363, "media_views": 593, "media_saved": 1, "media_shares": 1, "media_engagement": 16, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.41, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18081346583497138, "media_type": "VIDEO", "media_caption": "Kabelera ta pra toda hora! Aproveita a nossa pré venda e escolha os bonés que combinam com sua identidade.", "date": "2026-08-20", "media_like_count": 47, "media_comments_count": 0, "media_reach": 1382, "media_views": 1679, "media_saved": 2, "media_shares": 2, "media_engagement": 52, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.76, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 18111561697914885, "media_type": "VIDEO", "media_caption": "Kabelera cria pra quem entende que o estilo também é território. Aproveita a Pré Venda.", "date": "2026-08-20", "media_like_count": 14, "media_comments_count": 1, "media_reach": 520, "media_views": 630, "media_saved": 0, "media_shares": 1, "media_engagement": 16, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.08, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 17939611185347227, "media_type": "VIDEO", "media_caption": "Seu cabelo não precisa se adaptar, a Kabelera é que se adapta a ele. Pré Venda de reposição com 30% OFF.", "date": "2026-08-20", "media_like_count": 54, "media_comments_count": 0, "media_reach": 1038, "media_views": 1146, "media_saved": 2, "media_shares": 0, "media_engagement": 58, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.59, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 17906202075531966, "media_type": "VIDEO", "media_caption": "Nossa pré venda tá rolando e é por tempo limitado! Desconto de 30% e envios a partir de 18/09.", "date": "2026-08-21", "media_like_count": 6, "media_comments_count": 1, "media_reach": 231, "media_views": 267, "media_saved": 1, "media_shares": 1, "media_engagement": 9, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.9, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18145438546557879, "media_type": "IMAGE", "media_caption": "Time do boné marrom! K Bordado é estilo e tá na pré venda.", "date": "2026-08-21", "media_like_count": 7, "media_comments_count": 0, "media_reach": 374, "media_views": 590, "media_saved": 2, "media_shares": 0, "media_engagement": 9, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 2.41, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18090769673140031, "media_type": "VIDEO", "media_caption": "Sempre tem um boné pra cada look! Aproveita a PRÉ VENDA pra garantir os favoritos.", "date": "2026-08-21", "media_like_count": 23, "media_comments_count": 0, "media_reach": 875, "media_views": 1113, "media_saved": 1, "media_shares": 0, "media_engagement": 24, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.74, "weekday": "Friday", "month": "2026-08"}, {"media_id": 17938561242090919, "media_type": "VIDEO", "media_caption": "E o Dad Hat? Leve, versátil e com aquele caimento descomplicado que combina com tudo.", "date": "2026-08-22", "media_like_count": 14, "media_comments_count": 0, "media_reach": 380, "media_views": 492, "media_saved": 2, "media_shares": 3, "media_engagement": 19, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.0, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18132452983630737, "media_type": "VIDEO", "media_caption": "Aproveita nossa pré venda no site!", "date": "2026-08-22", "media_like_count": 19, "media_comments_count": 1, "media_reach": 309, "media_views": 412, "media_saved": 1, "media_shares": 3, "media_engagement": 24, "media_profile_visits": null, "media_follows": null, "engagement_rate": 7.77, "weekday": "Saturday", "month": "2026-08"}, {"media_id": 18131258656652235, "media_type": "VIDEO", "media_caption": "Ontem rolou mais uma edição do @hhwc.br e a gente tava por lá entregando liberdade e estilo.", "date": "2026-08-24", "media_like_count": 92, "media_comments_count": 0, "media_reach": 3164, "media_views": 4657, "media_saved": 6, "media_shares": 2, "media_engagement": 103, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.26, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18130055020638792, "media_type": "CAROUSEL_ALBUM", "media_caption": "Se tem uma coisa que a gente ama, é ver a família Kabelera crescer. Boas-vindas @ninasilvaperfil.", "date": "2026-08-24", "media_like_count": 38, "media_comments_count": 0, "media_reach": 693, "media_views": 1531, "media_saved": 3, "media_shares": 1, "media_engagement": 42, "media_profile_visits": 8.0, "media_follows": 0.0, "engagement_rate": 6.06, "weekday": "Monday", "month": "2026-08"}, {"media_id": 18164035417482149, "media_type": "VIDEO", "media_caption": "Para tranças, dreads, cachos e black power: a Kabelera foi feita pensando no seu cabelo de verdade.", "date": "2026-08-25", "media_like_count": 13, "media_comments_count": 0, "media_reach": 243, "media_views": 298, "media_saved": 0, "media_shares": 1, "media_engagement": 15, "media_profile_visits": null, "media_follows": null, "engagement_rate": 6.17, "weekday": "Tuesday", "month": "2026-08"}, {"media_id": 17924956908404400, "media_type": "VIDEO", "media_caption": "Cores disponíveis com desconto na primeira compra.", "date": "2026-08-26", "media_like_count": 5, "media_comments_count": 0, "media_reach": 226, "media_views": 294, "media_saved": 0, "media_shares": 2, "media_engagement": 7, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.1, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18180159433424551, "media_type": "VIDEO", "media_caption": "Pode até tirar o dia pra procrastinar mas a definição do cabelo tá em dia. Toucas de cetim no site.", "date": "2026-08-26", "media_like_count": 50, "media_comments_count": 0, "media_reach": 1599, "media_views": 2080, "media_saved": 2, "media_shares": 0, "media_engagement": 52, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.25, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18036458192829132, "media_type": "VIDEO", "media_caption": "Vem aprender com @black_caio como colocar o boné Kabelera pra acertar no estilo. Pré venda rolando.", "date": "2026-08-26", "media_like_count": 79, "media_comments_count": 0, "media_reach": 2196, "media_views": 2896, "media_saved": 5, "media_shares": 10, "media_engagement": 94, "media_profile_visits": null, "media_follows": null, "engagement_rate": 4.28, "weekday": "Wednesday", "month": "2026-08"}, {"media_id": 18038456756822038, "media_type": "IMAGE", "media_caption": "Desconto garantido e estilo certo com liberdade pra qualquer volume.", "date": "2026-08-27", "media_like_count": 15, "media_comments_count": 0, "media_reach": 439, "media_views": 683, "media_saved": 1, "media_shares": 1, "media_engagement": 17, "media_profile_visits": 0.0, "media_follows": 0.0, "engagement_rate": 3.87, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 17974197143918870, "media_type": "VIDEO", "media_caption": "K-bordado é aquele boné que você tem que usar no dia a dia. Pré venda com 30% OFF.", "date": "2026-08-27", "media_like_count": 17, "media_comments_count": 0, "media_reach": 795, "media_views": 1048, "media_saved": 1, "media_shares": 5, "media_engagement": 23, "media_profile_visits": null, "media_follows": null, "engagement_rate": 2.89, "weekday": "Thursday", "month": "2026-08"}, {"media_id": 18055252580636369, "media_type": "IMAGE", "media_caption": "Família! Esse fim de semana a gente se encontra na @expofavelasp. Bora?", "date": "2026-08-28", "media_like_count": 19, "media_comments_count": 3, "media_reach": 560, "media_views": 892, "media_saved": 1, "media_shares": 2, "media_engagement": 25, "media_profile_visits": 4.0, "media_follows": 0.0, "engagement_rate": 4.46, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18081551348701297, "media_type": "VIDEO", "media_caption": "Não é só um boné. É estilo, atitude e liberdade para usar o cabelo do seu jeito.", "date": "2026-08-28", "media_like_count": 68, "media_comments_count": 0, "media_reach": 1612, "media_views": 2086, "media_saved": 5, "media_shares": 7, "media_engagement": 82, "media_profile_visits": null, "media_follows": null, "engagement_rate": 5.09, "weekday": "Friday", "month": "2026-08"}, {"media_id": 18112799879047395, "media_type": "VIDEO", "media_caption": "Melhor coisa é quando você encontra aquilo que foi pensado pra você! O @wakandavoleibol_ aprovou.", "date": "2026-08-30", "media_like_count": 75, "media_comments_count": 1, "media_reach": 2202, "media_views": 2608, "media_saved": 0, "media_shares": 0, "media_engagement": 77, "media_profile_visits": null, "media_follows": null, "engagement_rate": 3.5, "weekday": "Sunday", "month": "2026-08"}, {"media_id": 18147851524543099, "media_type": "VIDEO", "media_caption": "Você só tem até hoje! Corre no site e aproveita nosso último dia de desconto antecipado.", "date": "2026-08-31", "media_like_count": 7, "media_comments_count": 0, "media_reach": 125, "media_views": 187, "media_saved": 0, "media_shares": 4, "media_engagement": 11, "media_profile_visits": null, "media_follows": null, "engagement_rate": 8.8, "weekday": "Monday", "month": "2026-08"}, {"media_id": 17954555922215466, "media_type": "VIDEO", "media_caption": "Atenção se liga no recado do @calebeser: aproveita a pré venda pra garantir o boné favorito.", "date": "2026-08-31", "media_like_count": 27, "media_comments_count": 0, "media_reach": 249, "media_views": 364, "media_saved": 0, "media_shares": 1, "media_engagement": 28, "media_profile_visits": null, "media_follows": null, "engagement_rate": 11.24, "weekday": "Monday", "month": "2026-08"}];
+const DAILY = [{"date": "2026-08-02", "accounts_engaged": 65, "comments": 1, "likes": 59, "saves": 9, "shares": 4, "total_interactions": 77, "views": 7589, "reach_1d": 5207, "follower_count_1d": 32}, {"date": "2026-08-03", "accounts_engaged": 51, "comments": 0, "likes": 56, "saves": 8, "shares": 3, "total_interactions": 71, "views": 4968, "reach_1d": 3103, "follower_count_1d": 21}, {"date": "2026-08-04", "accounts_engaged": 82, "comments": 1, "likes": 73, "saves": 6, "shares": 11, "total_interactions": 102, "views": 7619, "reach_1d": 4775, "follower_count_1d": 22}, {"date": "2026-08-05", "accounts_engaged": 62, "comments": 1, "likes": 64, "saves": 5, "shares": 4, "total_interactions": 79, "views": 5986, "reach_1d": 3324, "follower_count_1d": 24}, {"date": "2026-08-06", "accounts_engaged": 60, "comments": 0, "likes": 77, "saves": 8, "shares": 8, "total_interactions": 103, "views": 6762, "reach_1d": 3499, "follower_count_1d": 15}, {"date": "2026-08-07", "accounts_engaged": 70, "comments": 0, "likes": 68, "saves": 4, "shares": 5, "total_interactions": 85, "views": 6775, "reach_1d": 3815, "follower_count_1d": 21}, {"date": "2026-08-08", "accounts_engaged": 159, "comments": 1, "likes": 201, "saves": 18, "shares": 10, "total_interactions": 246, "views": 7688, "reach_1d": 4434, "follower_count_1d": 31}, {"date": "2026-08-09", "accounts_engaged": 65, "comments": 0, "likes": 63, "saves": 5, "shares": 3, "total_interactions": 74, "views": 8150, "reach_1d": 5061, "follower_count_1d": 24}, {"date": "2026-08-10", "accounts_engaged": 51, "comments": 1, "likes": 53, "saves": 3, "shares": 6, "total_interactions": 69, "views": 7687, "reach_1d": 4275, "follower_count_1d": 28}, {"date": "2026-08-11", "accounts_engaged": 68, "comments": 0, "likes": 89, "saves": 10, "shares": 10, "total_interactions": 120, "views": 6474, "reach_1d": 3014, "follower_count_1d": 13}, {"date": "2026-08-12", "accounts_engaged": 185, "comments": 4, "likes": 196, "saves": 13, "shares": 9, "total_interactions": 241, "views": 9256, "reach_1d": 5259, "follower_count_1d": 17}, {"date": "2026-08-13", "accounts_engaged": 63, "comments": 0, "likes": 71, "saves": 5, "shares": 2, "total_interactions": 82, "views": 9925, "reach_1d": 5289, "follower_count_1d": 22}, {"date": "2026-08-14", "accounts_engaged": 58, "comments": 0, "likes": 86, "saves": 0, "shares": 6, "total_interactions": 100, "views": 7166, "reach_1d": 3555, "follower_count_1d": 21}, {"date": "2026-08-15", "accounts_engaged": 47, "comments": 0, "likes": 48, "saves": 0, "shares": 6, "total_interactions": 58, "views": 6292, "reach_1d": 3314, "follower_count_1d": 13}, {"date": "2026-08-16", "accounts_engaged": 61, "comments": 0, "likes": 80, "saves": 12, "shares": 3, "total_interactions": 99, "views": 8271, "reach_1d": 4324, "follower_count_1d": 23}, {"date": "2026-08-17", "accounts_engaged": 75, "comments": 0, "likes": 88, "saves": 18, "shares": 3, "total_interactions": 114, "views": 7989, "reach_1d": 4451, "follower_count_1d": 23}, {"date": "2026-08-18", "accounts_engaged": 37, "comments": 0, "likes": 60, "saves": 3, "shares": 3, "total_interactions": 70, "views": 6840, "reach_1d": 3630, "follower_count_1d": 22}, {"date": "2026-08-19", "accounts_engaged": 123, "comments": 11, "likes": 140, "saves": 5, "shares": 9, "total_interactions": 175, "views": 13043, "reach_1d": 4267, "follower_count_1d": 17}, {"date": "2026-08-20", "accounts_engaged": 155, "comments": 1, "likes": 199, "saves": 8, "shares": 4, "total_interactions": 220, "views": 9477, "reach_1d": 5331, "follower_count_1d": 14}, {"date": "2026-08-21", "accounts_engaged": 78, "comments": 1, "likes": 105, "saves": 3, "shares": 10, "total_interactions": 129, "views": 6752, "reach_1d": 3907, "follower_count_1d": 16}, {"date": "2026-08-22", "accounts_engaged": 64, "comments": 0, "likes": 72, "saves": 5, "shares": 2, "total_interactions": 81, "views": 6909, "reach_1d": 4451, "follower_count_1d": 17}, {"date": "2026-08-23", "accounts_engaged": 64, "comments": 1, "likes": 68, "saves": 6, "shares": 8, "total_interactions": 91, "views": 6978, "reach_1d": 4496, "follower_count_1d": 24}, {"date": "2026-08-24", "accounts_engaged": 153, "comments": 23, "likes": 182, "saves": 12, "shares": 7, "total_interactions": 235, "views": 10281, "reach_1d": 6233, "follower_count_1d": 22}, {"date": "2026-08-25", "accounts_engaged": 61, "comments": 4, "likes": 73, "saves": 6, "shares": 2, "total_interactions": 87, "views": 6695, "reach_1d": 3714, "follower_count_1d": 17}, {"date": "2026-08-26", "accounts_engaged": 145, "comments": 0, "likes": 170, "saves": 7, "shares": 19, "total_interactions": 215, "views": 10791, "reach_1d": 6384, "follower_count_1d": 19}, {"date": "2026-08-27", "accounts_engaged": 90, "comments": 0, "likes": 97, "saves": 7, "shares": 8, "total_interactions": 120, "views": 9116, "reach_1d": 5049, "follower_count_1d": 19}, {"date": "2026-08-28", "accounts_engaged": 140, "comments": 13, "likes": 154, "saves": 8, "shares": 13, "total_interactions": 203, "views": 10806, "reach_1d": 6903, "follower_count_1d": 27}, {"date": "2026-08-29", "accounts_engaged": 68, "comments": 1, "likes": 104, "saves": 7, "shares": 2, "total_interactions": 120, "views": 7952, "reach_1d": 4307, "follower_count_1d": 46}, {"date": "2026-08-30", "accounts_engaged": 125, "comments": 12, "likes": 179, "saves": 8, "shares": 3, "total_interactions": 214, "views": 12343, "reach_1d": 6785, "follower_count_1d": 28}, {"date": "2026-08-31", "accounts_engaged": 73, "comments": 1, "likes": 121, "saves": 8, "shares": 9, "total_interactions": 151, "views": 7111, "reach_1d": 3954, "follower_count_1d": 0}];
+const AUDIENCE = { gender:[{name:"Feminino",size:45033},{name:"Masculino",size:5714},{name:"Não especificado",size:3473}],
+  age:[{name:"13-17",size:78},{name:"18-24",size:1989},{name:"25-34",size:16091},{name:"35-44",size:22297},{name:"45-54",size:10733},{name:"55-64",size:2558},{name:"65+",size:474}] };
+
+const _cs = getComputedStyle(document.documentElement);
+const BRAND = (_cs.getPropertyValue('--accent').trim() || "#FFFA2A"),
+      ACCENT = "#4C96EE", BLUE = "#378ADD",
+      GRAY = (_cs.getPropertyValue('--muted').trim() || "#B4B2A9"),
+      CARD = (_cs.getPropertyValue('--card').trim() || "#1B1E27"),
+      GRID = (_cs.getPropertyValue('--border').trim() || "#2C3140");
+// Textos (ticks/legendas) e linhas de grade dos gráficos acompanham o tema do app.
+if (window.Chart) {
+  Chart.defaults.color = (_cs.getPropertyValue('--muted').trim() || "#AEB4C4");
+  Chart.defaults.borderColor = (_cs.getPropertyValue('--border').trim() || "#2C3140");
+}
+const TYPE_LABEL = {IMAGE:"Imagem", VIDEO:"Vídeo/Reels", CAROUSEL_ALBUM:"Carrossel"};
+const WEEKDAY_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const WEEKDAY_LABEL = {Monday:"Seg",Tuesday:"Ter",Wednesday:"Qua",Thursday:"Qui",Friday:"Sex",Saturday:"Sáb",Sunday:"Dom"};
+const MONTHS = ["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08"];
+const MONTH_LABEL = {"2026-01":"Janeiro","2026-02":"Fevereiro","2026-03":"Março","2026-04":"Abril","2026-05":"Maio","2026-06":"Junho","2026-07":"Julho","2026-08":"Agosto"};
+const MONTH_SHORT = {"2026-01":"Jan","2026-02":"Fev","2026-03":"Mar","2026-04":"Abr","2026-05":"Mai","2026-06":"Jun","2026-07":"Jul","2026-08":"Ago"};
+
+function fmt(n, d=0){ return Number(n).toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d}); }
+function fmtDate(iso){ const [y,m,day]=iso.split('-'); return day+'/'+m; }
+
+class Dashboard{
+  constructor(posts, daily){
+    this.posts = posts;
+    this.daily = daily;
+    this.charts = {};
+    this.sortField = 'date'; this.sortDir = 'desc';
+    this.period = 'all';
+    this.init();
+  }
+  init(){
+    this.buildMonthTabs();
+    this.buildMonthlyChart();
+    this.buildGenderChart();
+    this.buildAgeChart();
+    this.applyFilters();
+  }
+  buildMonthTabs(){
+    const opts = [{v:'all', l:'Geral (Jan-Ago)'}].concat(MONTHS.map(m=>({v:m, l:MONTH_LABEL[m]})));
+    document.getElementById('month-tabs').innerHTML = opts.map(o=>
+      `<button data-v="${o.v}" class="${o.v==='all'?'active':''}" onclick="dash.setPeriod('${o.v}')">${o.l}</button>`
+    ).join('');
+  }
+  setPeriod(p){
+    this.period = p;
+    document.querySelectorAll('.month-tabs button').forEach(b=> b.classList.toggle('active', b.dataset.v===p));
+    this.applyFilters();
+  }
+  getFiltered(){
+    const format = document.getElementById('f-format').value;
+    return this.posts.filter(p=>{
+      if(this.period!=='all' && p.month!==this.period) return false;
+      if(format!=='all' && p.media_type!==format) return false;
+      return true;
+    });
+  }
+  applyFilters(){
+    const filtered = this.getFiltered();
+    const label = this.period==='all' ? 'Janeiro a Agosto/2026 (visão geral, 190 publicações — julho parcial até 23/07)' : MONTH_LABEL[this.period]+'/2026';
+    let noteExtra = '';
+    if(this.period==='2026-07') noteExtra = ' Julho é mês parcial: dados até 23/07.';
+    if(['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'].includes(this.period)) noteExtra = ' Métricas diárias de conta (alcance/interações) não disponíveis para este mês — fora da janela de 30 dias da API do Instagram; o gráfico de tendência mostrará apenas o aviso.';
+    document.getElementById('period-note').textContent = 'Mostrando: ' + label + '.' + noteExtra;
+    this.renderKPIs(filtered);
+    this.renderTrendChart();
+    this.renderFormatChart(filtered);
+    this.renderWeekdayChart(filtered);
+    this.renderTable(filtered);
+    this.updateMonthlyChartHighlight();
+  }
+  renderKPIs(data){
+    const n = data.length;
+    const sum = f => data.reduce((a,p)=>a+(Number(p[f])||0),0);
+    const avg = f => n? sum(f)/n : 0;
+    const likes=sum('media_like_count'), comments=sum('media_comments_count'), reach=sum('media_reach'),
+          views=sum('media_views'), saves=sum('media_saved'), shares=sum('media_shares');
+    const rate = n? (data.reduce((a,p)=>a+Number(p.engagement_rate||0),0)/n) : 0;
+    const cards = [
+      {label:'Publicações', value:fmt(n), sub:'no período selecionado'},
+      {label:'Curtidas totais', value:fmt(likes), sub:'média '+fmt(avg('media_like_count'),1)+'/post'},
+      {label:'Alcance total', value:fmt(reach), sub:'média '+fmt(avg('media_reach'),0)+'/post'},
+      {label:'Taxa de engajamento', value:fmt(rate,2)+'%', sub:'média por post'},
+      {label:'Visualizações', value:fmt(views), sub:'soma por post'},
+      {label:'Comentários', value:fmt(comments), sub:'total'},
+      {label:'Salvamentos', value:fmt(saves), sub:'total'},
+      {label:'Compartilhamentos', value:fmt(shares), sub:'total'},
+    ];
+    document.getElementById('kpi-row').innerHTML = cards.map(c=>
+      `<div class="kpi"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`
+    ).join('');
+  }
+  buildMonthlyChart(){
+    const likesAvg = MONTHS.map(m=>{
+      const rows = this.posts.filter(p=>p.month===m);
+      return rows.length? rows.reduce((a,p)=>a+Number(p.media_like_count||0),0)/rows.length : 0;
+    });
+    const rateAvg = MONTHS.map(m=>{
+      const rows = this.posts.filter(p=>p.month===m);
+      return rows.length? rows.reduce((a,p)=>a+Number(p.engagement_rate||0),0)/rows.length : 0;
+    });
+    const ctx = document.getElementById('chartMonthly');
+    this.monthlyColors = MONTHS.map(()=> ACCENT);
+    this.charts.monthly = new Chart(ctx, {
+      data:{
+        labels: MONTHS.map(m=>MONTH_SHORT[m]),
+        datasets:[
+          {type:'bar', label:'Curtidas médias/post', data:likesAvg.map(v=>+v.toFixed(1)), backgroundColor: this.monthlyColors.slice(), order:2, yAxisID:'y'},
+          {type:'line', label:'Taxa de engajamento média (%)', data:rateAvg.map(v=>+v.toFixed(2)), borderColor:BRAND, backgroundColor:BRAND, borderWidth:2, tension:.3, pointRadius:4, yAxisID:'y1', order:1}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'top', labels:{boxWidth:12, font:{size:11}}}, tooltip:{mode:'index', intersect:false}},
+        scales:{
+          y:{position:'left', title:{display:true, text:'Curtidas médias'}, grid:{color:GRID}},
+          y1:{position:'right', title:{display:true, text:'Taxa de engajamento (%)'}, grid:{display:false}},
+          x:{grid:{display:false}}
+        }
+      }
+    });
+  }
+  updateMonthlyChartHighlight(){
+    if(!this.charts.monthly) return;
+    const colors = MONTHS.map(m => m===this.period ? BRAND : ACCENT);
+    this.charts.monthly.data.datasets[0].backgroundColor = colors;
+    this.charts.monthly.update('none');
+  }
+  renderTrendChart(){
+    const wrap = document.getElementById('trendBoxWrap');
+    const relevantDaily = this.period==='all' ? this.daily : this.daily.filter(d=>d.date.startsWith(this.period));
+    if(relevantDaily.length===0){
+      wrap.innerHTML = '<div class="empty-state">Sem dados diários de conta disponíveis para este mês — a API do Instagram só mantém 30 dias de histórico para alcance/interações agregadas. Publicações individuais deste mês seguem completas nos demais gráficos e na tabela.</div>';
+      return;
+    }
+    if(!document.getElementById('chartTrend')){
+      wrap.innerHTML = '<canvas id="chartTrend" role="img" aria-label="Gráfico de alcance diário e interações totais da conta"></canvas>';
+    }
+    const labels = relevantDaily.map(d=>fmtDate(d.date));
+    if(this.charts.trend) this.charts.trend.destroy();
+    const ctx = document.getElementById('chartTrend');
+    this.charts.trend = new Chart(ctx, {
+      data:{
+        labels,
+        datasets:[
+          {type:'bar', label:'Alcance diário', data:relevantDaily.map(d=>d.reach_1d), backgroundColor:ACCENT, order:2, yAxisID:'y'},
+          {type:'line', label:'Interações totais', data:relevantDaily.map(d=>d.total_interactions), borderColor:BRAND, backgroundColor:BRAND, borderWidth:2, tension:.3, pointRadius:2, yAxisID:'y1', order:1}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'top', labels:{boxWidth:12, font:{size:11}}}, tooltip:{mode:'index', intersect:false}},
+        scales:{
+          y:{position:'left', title:{display:true, text:'Alcance diário'}, grid:{color:GRID}},
+          y1:{position:'right', title:{display:true, text:'Interações totais'}, grid:{display:false}},
+          x:{ticks:{maxRotation:60, minRotation:60, autoSkip:true, maxTicksLimit:16}, grid:{display:false}}
+        }
+      }
+    });
+  }
+  renderFormatChart(data){
+    const types = ['IMAGE','VIDEO','CAROUSEL_ALBUM'];
+    const rates = types.map(t=>{
+      const rows = data.filter(p=>p.media_type===t);
+      if(!rows.length) return 0;
+      return rows.reduce((a,p)=>a+Number(p.engagement_rate||0),0)/rows.length;
+    });
+    const counts = types.map(t=>data.filter(p=>p.media_type===t).length);
+    if(this.charts.format) this.charts.format.destroy();
+    const ctx = document.getElementById('chartFormat');
+    this.charts.format = new Chart(ctx, {
+      type:'bar',
+      data:{ labels:types.map(t=>TYPE_LABEL[t]+' ('+counts[types.indexOf(t)]+')'),
+        datasets:[{ label:'Taxa de engajamento (%)', data:rates.map(r=>+r.toFixed(2)), backgroundColor:[BLUE,BRAND,ACCENT], borderRadius:5 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.parsed.y+'%'}}},
+        scales:{ y:{beginAtZero:true, ticks:{callback:v=>v+'%'}, grid:{color:GRID}}, x:{grid:{display:false}} } }
+    });
+  }
+  renderWeekdayChart(data){
+    const byDay = {};
+    WEEKDAY_ORDER.forEach(d=>byDay[d]=[]);
+    data.forEach(p=>{ if(byDay[p.weekday]) byDay[p.weekday].push(Number(p.media_engagement)||0); });
+    const vals = WEEKDAY_ORDER.map(d=> byDay[d].length? byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length : 0);
+    const best = vals.indexOf(Math.max(...vals));
+    if(this.charts.weekday) this.charts.weekday.destroy();
+    const ctx = document.getElementById('chartWeekday');
+    this.charts.weekday = new Chart(ctx, {
+      type:'bar',
+      data:{ labels:WEEKDAY_ORDER.map(d=>WEEKDAY_LABEL[d]),
+        datasets:[{ data:vals.map(v=>+v.toFixed(1)), backgroundColor:WEEKDAY_ORDER.map((d,i)=> i===best? ACCENT : BRAND), borderRadius:5 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{ y:{beginAtZero:true, title:{display:true,text:'Engajamento médio'}, grid:{color:GRID}}, x:{grid:{display:false}} } }
+    });
+  }
+  buildGenderChart(){
+    const ctx = document.getElementById('chartGender');
+    new Chart(ctx, { type:'doughnut',
+      data:{ labels:AUDIENCE.gender.map(g=>g.name), datasets:[{ data:AUDIENCE.gender.map(g=>g.size), backgroundColor:[BRAND,ACCENT,GRAY], borderColor:CARD, borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'58%',
+        plugins:{ legend:{position:'bottom', labels:{boxWidth:10, font:{size:11}}},
+          tooltip:{callbacks:{label:c=>{const t=c.dataset.data.reduce((a,b)=>a+b,0); return c.label+': '+((c.parsed/t)*100).toFixed(0)+'%';}}} } }
+    });
+  }
+  buildAgeChart(){
+    const ctx = document.getElementById('chartAge');
+    new Chart(ctx, { type:'bar',
+      data:{ labels:AUDIENCE.age.map(a=>a.name), datasets:[{ data:AUDIENCE.age.map(a=>a.size), backgroundColor:BRAND, borderRadius:4 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmt(c.parsed.y)+' seguidores'}}},
+        scales:{ y:{beginAtZero:true, ticks:{callback:v=> v>=1000? (v/1000)+'k': v}, grid:{color:GRID}}, x:{grid:{display:false}, ticks:{font:{size:10}}} } }
+    });
+  }
+  renderTable(data){
+    document.getElementById('table-count').textContent = data.length + ' publicações';
+    const sorted = [...data].sort((a,b)=>{
+      let av=a[this.sortField], bv=b[this.sortField];
+      if(this.sortField==='media_caption'){ av=(av||'').toLowerCase(); bv=(bv||'').toLowerCase(); }
+      const cmp = av<bv? -1 : av>bv? 1 : 0;
+      return this.sortDir==='asc'? cmp : -cmp;
+    });
+    document.getElementById('table-body').innerHTML = sorted.map(p=>`
+      <tr>
+        <td>${fmtDate(p.date)}</td>
+        <td><span class="badge ${p.media_type}">${TYPE_LABEL[p.media_type]}</span></td>
+        <td class="caption-cell">${(p.media_caption||'').slice(0,90)}${(p.media_caption||'').length>90?'…':''}</td>
+        <td>${fmt(p.media_like_count)}</td>
+        <td>${fmt(p.media_comments_count)}</td>
+        <td>${fmt(p.media_reach)}</td>
+        <td>${fmt(p.media_views)}</td>
+        <td>${fmt(p.media_engagement)}</td>
+        <td>${Number(p.engagement_rate).toFixed(2)}%</td>
+      </tr>`).join('');
+  }
+}
+
+document.getElementById('f-format').addEventListener('change', ()=> dash.applyFilters());
+document.querySelectorAll('thead th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const field = th.dataset.field;
+    if(dash.sortField===field){ dash.sortDir = dash.sortDir==='asc'?'desc':'asc'; }
+    else { dash.sortField = field; dash.sortDir = 'desc'; }
+    dash.renderTable(dash.getFiltered());
+  });
+});
+
+function showView(name){
+  document.getElementById('view-dashboard').style.display = name==='dashboard' ? '' : 'none';
+  document.getElementById('view-strategy').style.display = name==='strategy' ? '' : 'none';
+  document.getElementById('tab-dashboard').classList.toggle('active', name==='dashboard');
+  document.getElementById('tab-strategy').classList.toggle('active', name==='strategy');
+}
+
+const dash = new Dashboard(POSTS, DAILY);
+</script>
+</body>
+</html>

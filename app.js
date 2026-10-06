@@ -58,6 +58,7 @@ function icon(name, size){
     plus:'<path d="M12 5v14M5 12h14"/>',
     search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
     bell:'<path d="M6 9a6 6 0 1 1 12 0c0 4.5 1.5 6 1.5 6h-15S6 13.5 6 9z"/><path d="M9.5 18.5a2.5 2.5 0 0 0 5 0"/>',
+    chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
     moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
     close:'<path d="M6 6l12 12M18 6 6 18"/>',
@@ -91,6 +92,8 @@ function applyTheme(tema){
   try { localStorage.setItem('km-theme', tema); } catch(e){}
   var btn = document.getElementById('themeToggleBtn');
   if (btn) btn.innerHTML = icon(tema === 'dark' ? 'moon' : 'sun', 18);
+  var mf = document.getElementById('metricsFrame');
+  if (mf) { try { mf.contentWindow.location.reload(); } catch(e){ mf.src = mf.src; } }
 }
 
 /* ======================= DATA ======================= */
@@ -351,6 +354,7 @@ var NAV_MAIN = [
   {route:'#/projetos', label:'Projetos', icon:'projects', match:'projetos,projeto'}
 ];
 var NAV_AFTER_AREAS = [
+  {route:'#/metricas', label:'Métricas', icon:'chart', match:'metricas'},
   {route:'#/minhas-tarefas', label:'Minhas Tarefas', icon:'tasks', match:'minhas-tarefas'},
   {route:'#/calendario', label:'Calendário', icon:'calendar', match:'calendario'},
   {route:'#/equipe', label:'Equipe', icon:'team', match:'equipe'},
@@ -393,6 +397,7 @@ function pageTitleFor(r){
   if(r.name==='calendario') return ['Calendário', 'Todos os prazos da empresa'];
   if(r.name==='equipe') return ['Equipe', 'Carga de trabalho por pessoa'];
   if(r.name==='configuracoes') return ['Configurações', 'Áreas, fluxos e usuários'];
+  if(r.name==='metricas') return ['Métricas', 'Redes sociais da Kabelera'];
   return ['Kabelera Manager', ''];
 }
 function renderTopbar(){
@@ -443,8 +448,16 @@ function renderContent(){
   else if(r.name==='calendario') el.innerHTML = viewCalendarPage();
   else if(r.name==='equipe') el.innerHTML = viewTeam();
   else if(r.name==='configuracoes') el.innerHTML = viewSettings();
+  else if(r.name==='metricas') el.innerHTML = viewMetrics();
   else el.innerHTML = '<div class="empty-state">Página não encontrada.</div>';
   wireDynamicCharts();
+}
+
+/* ---- Métricas (relatório de redes sociais embutido) ---- */
+function viewMetrics(){
+  return '<div class="metrics-wrap">' +
+    '<iframe id="metricsFrame" class="metrics-frame" src="relatorios/redes-sociais.html?v=1" title="Relatório de redes sociais da Kabelera"></iframe>' +
+    '</div>';
 }
 
 /* ---- Dashboard ---- */
