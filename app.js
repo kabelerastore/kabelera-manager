@@ -231,8 +231,14 @@ function updateTaskField(taskId, field, value){
   var old = t[field]; if(old===value) return;
   var prev = snapshot(t);
   t[field]=value;
-  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega',startDate:'data de início',title:'título',description:'descrição'};
-  pushHistory(t, labelMap[field]||field, field==='responsibleId'?userLabel(old):(old||'—'), field==='responsibleId'?userLabel(value):(value||'—'));
+  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega',startDate:'data de início',title:'título',description:'descrição',projectId:'projeto',participants:'participantes'};
+  function fieldLabel(f,v){
+    if(f==='responsibleId') return userLabel(v);
+    if(f==='projectId') return v && project(v) ? project(v).name : '—';
+    if(f==='participants') return (v && v.length) ? v.map(userLabel).join(', ') : '—';
+    return v || '—';
+  }
+  pushHistory(t, labelMap[field]||field, fieldLabel(field,old), fieldLabel(field,value));
   var p = persistTask(t, prev);
   if(field==='responsibleId' && value && value!==state.currentUserId){
     p.then(function(ok){ if(ok){ KMDB.insertNotifications([{ user_id:value, task_id:t.id, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+t.title+'".' }]).catch(function(){}); } });
@@ -354,9 +360,9 @@ var NAV_MAIN = [
   {route:'#/projetos', label:'Projetos', icon:'projects', match:'projetos,projeto'}
 ];
 var NAV_AFTER_AREAS = [
-  {route:'#/metricas', label:'Métricas', icon:'chart', match:'metricas'},
   {route:'#/minhas-tarefas', label:'Minhas Tarefas', icon:'tasks', match:'minhas-tarefas'},
   {route:'#/calendario', label:'Calendário', icon:'calendar', match:'calendario'},
+  {route:'#/metricas', label:'Métricas de Redes Sociais', icon:'chart', match:'metricas'},
   {route:'#/equipe', label:'Equipe', icon:'team', match:'equipe'},
   {route:'#/configuracoes', label:'Configurações', icon:'settings', match:'configuracoes'}
 ];
@@ -397,7 +403,7 @@ function pageTitleFor(r){
   if(r.name==='calendario') return ['Calendário', 'Todos os prazos da empresa'];
   if(r.name==='equipe') return ['Equipe', 'Carga de trabalho por pessoa'];
   if(r.name==='configuracoes') return ['Configurações', 'Áreas, fluxos e usuários'];
-  if(r.name==='metricas') return ['Métricas', 'Redes sociais da Kabelera'];
+  if(r.name==='metricas') return ['Métricas de Redes Sociais', 'Redes sociais da Kabelera'];
   return ['Kabelera Manager', ''];
 }
 function renderTopbar(){
@@ -881,9 +887,10 @@ function drawerTabBody(t,a){
       '<div class="field-row"><label>Status</label><select data-field="status">'+FLOWS[a.flow].map(function(c){return '<option value="'+esc(c)+'"'+(c===t.status?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Data de início</label><input type="date" data-field="startDate" value="'+(t.startDate||'')+'"></div>' +
       '<div class="field-row"><label>Prazo de entrega</label><input type="date" data-field="dueDate" value="'+(t.dueDate||'')+'"></div>' +
+      '<div class="field-row"><label>Projeto</label><select data-field="projectId"><option value="">— Nenhum —</option>'+PROJECTS.map(function(pr){return '<option value="'+pr.id+'"'+(pr.id===t.projectId?' selected':'')+'>'+esc(pr.name)+'</option>';}).join('')+'</select></div>' +
       '</div>' +
       '<div class="field-row"><label>Solicitante</label><div style="font-size:13px;">'+userLabel(t.requesterId)+'</div></div>' +
-      '<div class="field-row"><label>Participantes</label><div style="font-size:13px;">'+(t.participants.length?t.participants.map(userLabel).join(', '):'Nenhum participante além do responsável.')+'</div></div>' +
+      '<div class="field-row"><label>Participantes (além do responsável)</label><select multiple size="5" data-field="participants">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(t.participants&&t.participants.indexOf(u.id)>-1?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Segure Ctrl (ou Cmd) para marcar vários.</div></div>' +
       '<div class="field-two">' +
       '<div class="field-row"><label>Criada em</label><div style="font-size:13px;">'+fmtDateLong(t.createdAt)+'</div></div>' +
       '<div class="field-row"><label>Concluída em</label><div style="font-size:13px;">'+(t.completedAt?fmtDateLong(t.completedAt):'—')+'</div></div>' +
@@ -1140,6 +1147,17 @@ document.addEventListener('change', function(e){
     var bar = e.target.closest('[data-filter-key]'); var key = bar.getAttribute('data-filter-key');
     var f = getFilters(key); f[e.target.getAttribute('data-filter')] = e.target.value;
     renderContent();
+    return;
+  }
+  if(e.target.matches('[data-field="participants"]')){
+    var parts = Array.prototype.slice.call(e.target.selectedOptions).map(function(o){return o.value;});
+    updateTaskField(state.drawerTaskId, 'participants', parts);
+    renderDrawer(); renderContent();
+    return;
+  }
+  if(e.target.matches('[data-field="projectId"]')){
+    updateTaskField(state.drawerTaskId, 'projectId', e.target.value||null);
+    renderDrawer(); renderContent();
     return;
   }
   if(e.target.matches('[data-field]')){
