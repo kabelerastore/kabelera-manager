@@ -380,7 +380,9 @@ function renderSidebar(){
     return '<button class="nav-item'+(active?' active':'')+'" data-nav="'+it.route+'">'+icon(it.icon)+'<span>'+it.label+'</span></button>';
   }
   document.getElementById('navMain').innerHTML = NAV_MAIN.map(itemHTML).join('');
-  document.getElementById('navAreas').innerHTML = AREAS.map(function(a){
+  var todasActive = r.name==='todas';
+  var todasItem = '<button class="nav-item'+(todasActive?' active':'')+'" data-nav="#/todas"><span class="nav-dot" style="background:var(--text-muted)"></span><span>Todas</span></button>';
+  document.getElementById('navAreas').innerHTML = todasItem + AREAS.map(function(a){
     var active = r.name==='area' && r.params.areaId===a.id;
     return '<button class="nav-item'+(active?' active':'')+'" data-nav="#/area/'+a.id+'"><span class="nav-dot" style="background:'+areaColorCSS(a)+'"></span><span>'+a.name+'</span></button>';
   }).join('');
@@ -396,6 +398,7 @@ function renderSidebar(){
 
 function pageTitleFor(r){
   if(r.name==='dashboard') return ['Visão Geral', 'Panorama de todas as áreas e projetos'];
+  if(r.name==='todas') return ['Todas', 'Todas as tarefas, de todas as áreas, de uma vez'];
   if(r.name==='area') return [area(r.params.areaId).name, 'Quadro de tarefas da área'];
   if(r.name==='projetos') return ['Projetos', 'Iniciativas que cruzam várias áreas'];
   if(r.name==='projeto') return [project(r.params.id) ? project(r.params.id).name : 'Projeto', 'Todas as tarefas deste projeto, de qualquer área'];
@@ -447,6 +450,7 @@ function renderContent(){
   var r = state.route;
   var el = document.getElementById('content');
   if(r.name==='dashboard') el.innerHTML = viewDashboard();
+  else if(r.name==='todas') el.innerHTML = viewTodas(r.query.view||'lista');
   else if(r.name==='area') el.innerHTML = viewArea(r.params.areaId, r.query.view||'kanban');
   else if(r.name==='projetos') el.innerHTML = viewProjectsList();
   else if(r.name==='projeto') el.innerHTML = viewProjectDetail(r.params.id);
@@ -543,6 +547,19 @@ function projectCardHTML(p){
 }
 
 /* ---- Area board ---- */
+function viewTodas(view){
+  var f = getFilters('todas');
+  var tasks = TASKS.filter(function(t){ return matchesFilters(t, f); });
+  var tabs = ['lista','calendario'];
+  var labels = {lista:'Lista', calendario:'Calendário'};
+  var html = '<div class="view-tabs">' + tabs.map(function(v){
+    return '<button class="view-tab'+(v===view?' active':'')+'" data-todas-view="'+v+'">'+labels[v]+'</button>';
+  }).join('') + '</div>';
+  html += filtersBarHTML('todas', null);
+  if(view==='calendario') html += calendarHTML(tasks, 'todas');
+  else html += listTableHTML(tasks);
+  return html;
+}
 function viewArea(areaId, view){
   var a = area(areaId);
   var f = getFilters('area:'+areaId);
@@ -1132,6 +1149,9 @@ document.addEventListener('click', function(e){
 
   var areaViewBtn = e.target.closest('[data-area-view]');
   if(areaViewBtn){ var parts=areaViewBtn.getAttribute('data-area-view').split('|'); navigate('#/area/'+parts[0]+'?view='+parts[1]); return; }
+
+  var todasViewBtn = e.target.closest('[data-todas-view]');
+  if(todasViewBtn){ navigate('#/todas?view='+todasViewBtn.getAttribute('data-todas-view')); return; }
 
   var calNav = e.target.closest('[data-cal-nav]');
   if(calNav){ var dv=calNav.getAttribute('data-cal-nav'); state.calMonthOffset = dv==='0'?0:state.calMonthOffset+parseInt(dv,10); renderContent(); return; }
