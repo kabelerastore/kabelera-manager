@@ -1,5 +1,5 @@
 -- Lembretes de prazo do Kabelera Manager.
--- Roda 1x/dia e avisa o responsável de tarefas que vencem hoje ou amanhã.
+-- Roda 1x/dia e avisa o responsável E os participantes de tarefas que vencem hoje ou amanhã.
 -- Seguro rodar mais de uma vez (idempotente).
 
 -- 1) Extensões necessárias (pg_net já costuma estar instalada pelos webhooks).
@@ -19,18 +19,25 @@ declare
   v_hoje date := (now() at time zone 'America/Sao_Paulo')::date;
   v_count integer := 0;
 begin
+  with due as (
+    select t.id, t.responsible_id, t.participants,
+      '⏰ A tarefa "' || t.title || '" vence '
+        || case when t.due_date = v_hoje then 'hoje' else 'amanhã' end
+        || ' (' || to_char(t.due_date, 'DD/MM') || ').' as msg
+    from public.tasks t
+    where t.is_active = true
+      and t.completed_at is null
+      and t.due_date in (v_hoje, v_hoje + 1)
+  ),
+  destinatarios as (
+    select id as task_id, responsible_id as user_id, msg from due where responsible_id is not null
+    union
+    select d.id, p.participant_id, d.msg
+    from due d, unnest(d.participants) as p(participant_id)
+    where p.participant_id is not null and p.participant_id <> d.responsible_id
+  )
   insert into public.notifications (user_id, text, task_id)
-  select
-    t.responsible_id,
-    '⏰ A tarefa "' || t.title || '" vence '
-      || case when t.due_date = v_hoje then 'hoje' else 'amanhã' end
-      || ' (' || to_char(t.due_date, 'DD/MM') || ').',
-    t.id
-  from public.tasks t
-  where t.is_active = true
-    and t.completed_at is null
-    and t.responsible_id is not null
-    and t.due_date in (v_hoje, v_hoje + 1);
+  select user_id, msg, task_id from destinatarios;
 
   get diagnostics v_count = row_count;
   return v_count;
