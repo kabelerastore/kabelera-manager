@@ -243,6 +243,13 @@ function updateTaskField(taskId, field, value){
   if(field==='responsibleId' && value && value!==state.currentUserId){
     p.then(function(ok){ if(ok){ KMDB.insertNotifications([{ user_id:value, task_id:t.id, text:userLabel(state.currentUserId)+' atribuiu a você a tarefa "'+t.title+'".' }]).catch(function(){}); } });
   }
+  if(field==='participants'){
+    var oldArr = old || [];
+    var added = (value||[]).filter(function(id){ return oldArr.indexOf(id)===-1 && id!==state.currentUserId; });
+    if(added.length){
+      p.then(function(ok){ if(ok){ KMDB.insertNotifications(added.map(function(participantId){ return { user_id:participantId, task_id:t.id, text:userLabel(state.currentUserId)+' adicionou você como participante da tarefa "'+t.title+'".' }; })).catch(function(){}); } });
+    }
+  }
 }
 function addChecklistItem(taskId, text){
   if(!text.trim()) return;
