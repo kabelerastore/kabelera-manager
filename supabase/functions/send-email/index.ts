@@ -2,14 +2,24 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // Função acionada por um Database Webhook do Supabase quando uma linha é
 // inserida em public.notifications. Ela descobre o e-mail do destinatário e
-// envia o aviso pelo Resend. Configurar os secrets: RESEND_API_KEY e (opcional)
-// EMAIL_FROM. Deixar "Verify JWT" OFF (o webhook não manda JWT de usuário).
+// envia o aviso pelo Resend. Configurar os secrets: RESEND_API_KEY, WEBHOOK_SECRET
+// e (opcional) EMAIL_FROM. "Verify JWT" fica OFF (o webhook não manda JWT de
+// usuário); a trava de acesso é o WEBHOOK_SECRET no header x-webhook-secret.
 
 Deno.serve(async (req) => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
   try {
+    // Porta trancada: só atende quem apresentar o segredo combinado.
+    // O Database Webhook do Supabase manda esse segredo no header x-webhook-secret.
+    // Sem WEBHOOK_SECRET configurado ou com segredo errado, rejeita (evita chamadas públicas).
+    const webhookSecret = Deno.env.get("WEBHOOK_SECRET");
+    const sentSecret = req.headers.get("x-webhook-secret") || "";
+    if (!webhookSecret || sentSecret !== webhookSecret) {
+      return json({ ok: false, error: "Não autorizado." }, 401);
+    }
+
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) return json({ ok: false, error: "RESEND_API_KEY não configurada." }, 500);
     const from = Deno.env.get("EMAIL_FROM") || "Kabelera Manager <onboarding@resend.dev>";
