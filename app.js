@@ -590,7 +590,7 @@ function filtersBarHTML(key, a){
   var members = USERS;
   var subcats = a ? a.subcats : [];
   return '<div class="filters-bar" data-filter-key="'+key+'">' +
-    '<select data-filter="responsavel"><option value="">Todos os responsáveis</option>' + members.map(function(u){return '<option value="'+u.id+'"'+(f.responsavel===u.id?' selected':'')+'>'+u.name+'</option>';}).join('') + '</select>' +
+    '<select data-filter="responsavel"><option value="">Todos os responsáveis</option>' + members.map(function(u){return '<option value="'+u.id+'"'+(f.responsavel===u.id?' selected':'')+'>'+esc(u.name)+'</option>';}).join('') + '</select>' +
     (subcats.length? '<select data-filter="subcat"><option value="">Todas as subcategorias</option>' + subcats.map(function(s){return '<option value="'+esc(s)+'"'+(f.subcat===s?' selected':'')+'>'+s+'</option>';}).join('') + '</select>' : '') +
     '<select data-filter="prioridade"><option value="">Todas as prioridades</option>' + ['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(f.prioridade===p?' selected':'')+'>'+p+'</option>';}).join('') + '</select>' +
     '<select data-filter="prazo"><option value="">Qualquer prazo</option><option value="atrasadas"'+(f.prazo==='atrasadas'?' selected':'')+'>Atrasadas</option><option value="hoje"'+(f.prazo==='hoje'?' selected':'')+'>Vencendo hoje</option><option value="semana"'+(f.prazo==='semana'?' selected':'')+'>Esta semana</option><option value="sem"'+(f.prazo==='sem'?' selected':'')+'>Sem prazo</option></select>' +
@@ -630,7 +630,7 @@ function listTableHTML(tasks){
   if(!tasks.length) return '<div class="empty-state">Nenhuma tarefa encontrada com esses filtros.</div>';
   return '<div class="table-wrap"><table><thead><tr><th>Tarefa</th><th>Área</th><th>Subcategoria</th><th>Responsável</th><th>Prioridade</th><th>Status</th><th>Prazo</th></tr></thead><tbody>' +
     tasks.map(function(t){
-      return '<tr class="'+(isOverdue(t)?'row-overdue':'')+'" data-open-task="'+t.id+'"><td class="title-cell">'+esc(t.title)+'</td><td><span class="pill dep-pill" '+depStyle(t.areaId)+'>'+area(t.areaId).name+'</span></td><td>'+esc(t.subcategory)+'</td><td>'+userLabel(t.responsibleId)+'</td><td><span class="pill '+priorityClass(t.priority)+'">'+t.priority+'</span></td><td>'+esc(t.status)+'</td><td>'+ (isOverdue(t)?'<span class="tag overdue-chip">'+fmtDate(t.dueDate)+'</span>':fmtDate(t.dueDate)) +'</td></tr>';
+      return '<tr class="'+(isOverdue(t)?'row-overdue':'')+'" data-open-task="'+t.id+'"><td class="title-cell">'+esc(t.title)+'</td><td><span class="pill dep-pill" '+depStyle(t.areaId)+'>'+area(t.areaId).name+'</span></td><td>'+esc(t.subcategory)+'</td><td>'+esc(userLabel(t.responsibleId))+'</td><td><span class="pill '+priorityClass(t.priority)+'">'+t.priority+'</span></td><td>'+esc(t.status)+'</td><td>'+ (isOverdue(t)?'<span class="tag overdue-chip">'+fmtDate(t.dueDate)+'</span>':fmtDate(t.dueDate)) +'</td></tr>';
     }).join('') + '</tbody></table></div>';
 }
 function calendarHTML(tasks, key){
@@ -742,7 +742,7 @@ function viewProjectDetail(id){
     '<div class="card" style="padding:18px; margin-bottom:20px;">' +
       '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;"><div style="flex:1;min-width:220px;"><h2 style="margin:0 0 6px;font-size:18px;">'+esc(p.name)+'</h2><div style="color:var(--text-secondary);font-size:13px;line-height:1.5;">'+esc(p.description)+'</div></div><span class="tag">'+esc(p.status)+'</span></div>' +
       '<div class="progress-track" style="margin-top:16px;"><div class="progress-fill" style="width:'+pct+'%"></div></div>' +
-      '<div class="project-meta" style="margin-top:10px;"><span><b>'+pct+'%</b> concluído</span><span>'+ts.length+' tarefas · '+ts.filter(isFinal).length+' concluídas · '+ts.filter(isOverdue).length+' atrasadas</span><span>Responsável: '+userLabel(p.responsibleId)+'</span><span>'+fmtDateLong(p.startDate)+' → '+fmtDateLong(p.dueDate)+'</span></div>' +
+      '<div class="project-meta" style="margin-top:10px;"><span><b>'+pct+'%</b> concluído</span><span>'+ts.length+' tarefas · '+ts.filter(isFinal).length+' concluídas · '+ts.filter(isOverdue).length+' atrasadas</span><span>Responsável: '+esc(userLabel(p.responsibleId))+'</span><span>'+fmtDateLong(p.startDate)+' → '+fmtDateLong(p.dueDate)+'</span></div>' +
       '<div style="display:flex;align-items:center;gap:8px;margin-top:12px;"><span style="font-size:11.5px;color:var(--text-muted)">Participantes</span><div class="avatars-stack">'+p.participants.map(function(id){return avatarHTML(id);}).join('')+'</div></div>' +
     '</div>' +
     '<div class="section-head"><h2>Tarefas por área</h2><span class="count">independente de quem está vendo</span></div>' +
@@ -762,7 +762,7 @@ function viewMyTasks(){
     'Próximas': mine.filter(function(t){return t.dueDate && t.dueDate>iso(7) && !isFinal(t);}),
     'Concluídas': mine.filter(isFinal)
   };
-  var html = '<div class="section-head"><h2>Tarefas de '+userLabel(uidc)+'</h2><span class="count">'+mine.length+' no total</span></div>';
+  var html = '<div class="section-head"><h2>Tarefas de '+esc(userLabel(uidc))+'</h2><span class="count">'+mine.length+' no total</span></div>';
   ['Atrasadas','Hoje','Esta semana','Próximas','Concluídas'].forEach(function(g){
     html += '<div class="section-head"><h2 style="font-size:13.5px;">'+g+'</h2><span class="count">'+groups[g].length+'</span></div>' + listTableHTML(groups[g]);
   });
@@ -793,7 +793,7 @@ function viewCalendarPage(){
 function filtersBarHTMLGlobalCal(f){
   return '<div class="filters-bar" data-filter-key="global-cal">' +
     '<select data-filter="subcat"><option value="">Todas as áreas</option>' + AREAS.map(function(a){return '<option value="'+a.id+'"'+(f.subcat===a.id?' selected':'')+'>'+a.name+'</option>';}).join('') + '</select>' +
-    '<select data-filter="responsavel"><option value="">Todos os responsáveis</option>' + USERS.map(function(u){return '<option value="'+u.id+'"'+(f.responsavel===u.id?' selected':'')+'>'+u.name+'</option>';}).join('') + '</select>' +
+    '<select data-filter="responsavel"><option value="">Todos os responsáveis</option>' + USERS.map(function(u){return '<option value="'+u.id+'"'+(f.responsavel===u.id?' selected':'')+'>'+esc(u.name)+'</option>';}).join('') + '</select>' +
     '</div>';
 }
 
@@ -802,7 +802,7 @@ function viewTeam(){
   return '<div class="team-grid">' + USERS.map(function(u){
     var open = TASKS.filter(function(t){return t.responsibleId===u.id && !isFinal(t);}).length;
     var late = TASKS.filter(function(t){return t.responsibleId===u.id && isOverdue(t);}).length;
-    return '<div class="team-card">' + avatarHTML(u.id,'lg') + '<div class="meta"><div class="name">'+u.name+(u.nickname?' <span style="font-weight:500;color:var(--text-muted);">"'+u.nickname+'"</span>':'')+'</div><div class="role">'+u.roleLabel+'</div>' +
+    return '<div class="team-card">' + avatarHTML(u.id,'lg') + '<div class="meta"><div class="name">'+esc(u.name)+(u.nickname?' <span style="font-weight:500;color:var(--text-muted);">"'+esc(u.nickname)+'"</span>':'')+'</div><div class="role">'+esc(u.roleLabel)+'</div>' +
       '<div class="team-stats"><span><b>'+open+'</b> abertas</span><span style="color:'+(late?'var(--status-critical)':'inherit')+'"><b>'+late+'</b> atrasadas</span></div></div></div>';
   }).join('') + '</div>';
 }
@@ -818,7 +818,7 @@ function viewSettings(){
       return '<div style="margin-bottom:12px;"><b style="font-size:12.5px;">'+a.name+'</b><div class="flow-chain" style="margin-top:6px;">' + FLOWS[a.flow].map(function(c,i){ return (i? '<span class="arrow">→</span>':'') + '<span class="tag">'+c+'</span>'; }).join('') + '</div></div>';
     }).join('') + '</div></div>' +
     '<div class="settings-block"><h3>Usuários e papéis</h3><div class="table-wrap"><table><thead><tr><th>Nome</th><th>Papel</th><th>Área</th></tr></thead><tbody>' +
-    USERS.map(function(u){ return '<tr><td>'+u.name+(u.nickname?' <span class="tag">'+u.nickname+'</span>':'')+'</td><td>'+u.roleLabel+'</td><td>'+(u.areas&&u.areas.length?u.areas.map(function(id){return area(id).name;}).join(' + '):'Todas as áreas')+'</td></tr>'; }).join('') +
+    USERS.map(function(u){ return '<tr><td>'+esc(u.name)+(u.nickname?' <span class="tag">'+esc(u.nickname)+'</span>':'')+'</td><td>'+esc(u.roleLabel)+'</td><td>'+(u.areas&&u.areas.length?u.areas.map(function(id){return area(id).name;}).join(' + '):'Todas as áreas')+'</td></tr>'; }).join('') +
     '</tbody></table></div></div>';
   if(state.me && state.me.isAdmin){ html += adminAreasBlock() + adminUsersBlock(); }
   html += '<div class="settings-block"><h3>Sobre o Kabelera Manager</h3><div class="card" style="padding:14px 16px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;">Gestão de projetos, tarefas e equipe da Kabelera, com dados salvos no Supabase e protegidos por login. Usuários e áreas são desativados, nunca apagados, para preservar o histórico.</div></div>';
@@ -906,14 +906,14 @@ function drawerTabBody(t,a){
     return '<div class="field-row"><label>Título</label><input type="text" data-field="title" value="'+esc(t.title)+'"></div>' +
       '<div class="field-row"><label>Descrição</label><textarea data-field="description" rows="3" placeholder="Sem descrição.">'+esc(t.description||'')+'</textarea></div>' +
       '<div class="field-two">' +
-      '<div class="field-row"><label>Responsável</label><select data-field="responsibleId">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===t.responsibleId?' selected':'')+'>'+u.name+'</option>';}).join('')+'</select></div>' +
+      '<div class="field-row"><label>Responsável</label><select data-field="responsibleId">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===t.responsibleId?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Prioridade</label><select data-field="priority">'+['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(p===t.priority?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Status</label><select data-field="status">'+FLOWS[a.flow].map(function(c){return '<option value="'+esc(c)+'"'+(c===t.status?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Data de início</label><input type="date" data-field="startDate" value="'+(t.startDate||'')+'"></div>' +
       '<div class="field-row"><label>Prazo de entrega</label><input type="date" data-field="dueDate" value="'+(t.dueDate||'')+'"></div>' +
       '<div class="field-row"><label>Projeto</label><select data-field="projectId"><option value="">— Nenhum —</option>'+PROJECTS.map(function(pr){return '<option value="'+pr.id+'"'+(pr.id===t.projectId?' selected':'')+'>'+esc(pr.name)+'</option>';}).join('')+'</select></div>' +
       '</div>' +
-      '<div class="field-row"><label>Solicitante</label><div style="font-size:13px;">'+userLabel(t.requesterId)+'</div></div>' +
+      '<div class="field-row"><label>Solicitante</label><div style="font-size:13px;">'+esc(userLabel(t.requesterId))+'</div></div>' +
       '<div class="field-row"><label>Participantes (além do responsável)</label><select multiple size="5" data-field="participants">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(t.participants&&t.participants.indexOf(u.id)>-1?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Segure Ctrl (ou Cmd) para marcar vários.</div></div>' +
       '<div class="field-two">' +
       '<div class="field-row"><label>Criada em</label><div style="font-size:13px;">'+fmtDateLong(t.createdAt)+'</div></div>' +
@@ -928,11 +928,11 @@ function drawerTabBody(t,a){
       '<div class="add-row"><input type="text" id="newChecklistInput" placeholder="Novo item do checklist"><button class="btn btn-ghost btn-sm" id="addChecklistBtn">Adicionar</button></div>';
   }
   if(state.drawerTab==='subtarefas'){
-    return (t.subtasks.length? t.subtasks.map(function(s){ return '<div class="subtask-row"><input type="checkbox" data-toggle-subtask="'+s.id+'" '+(s.done?'checked':'')+'><span style="flex:1;'+(s.done?'text-decoration:line-through;color:var(--text-muted);':'')+'">'+esc(s.title)+'</span><span class="tag">'+userLabel(s.responsibleId)+'</span></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhuma subtarefa ainda.</div>') +
+    return (t.subtasks.length? t.subtasks.map(function(s){ return '<div class="subtask-row"><input type="checkbox" data-toggle-subtask="'+s.id+'" '+(s.done?'checked':'')+'><span style="flex:1;'+(s.done?'text-decoration:line-through;color:var(--text-muted);':'')+'">'+esc(s.title)+'</span><span class="tag">'+esc(userLabel(s.responsibleId))+'</span></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhuma subtarefa ainda.</div>') +
       '<div class="add-row"><input type="text" id="newSubtaskInput" placeholder="Nova subtarefa"><button class="btn btn-ghost btn-sm" id="addSubtaskBtn">Adicionar</button></div>';
   }
   if(state.drawerTab==='comentarios'){
-    return (t.comments.length? t.comments.slice().reverse().map(function(c){ return '<div class="comment">'+avatarHTML(c.authorId)+'<div class="body"><div class="head"><span class="name">'+userLabel(c.authorId)+'</span><span class="time">'+fmtDateTime(c.createdAt)+'</span></div><div class="txt">'+mentionify(c.text)+'</div></div></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhum comentário ainda.</div>') +
+    return (t.comments.length? t.comments.slice().reverse().map(function(c){ return '<div class="comment">'+avatarHTML(c.authorId)+'<div class="body"><div class="head"><span class="name">'+esc(userLabel(c.authorId))+'</span><span class="time">'+fmtDateTime(c.createdAt)+'</span></div><div class="txt">'+mentionify(c.text)+'</div></div></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhum comentário ainda.</div>') +
       '<div class="field-row" style="margin-top:12px;"><label>Adicionar comentário (use @Nome para mencionar)</label><textarea id="newCommentInput" rows="3" placeholder="Escreva um comentário..."></textarea><div style="margin-top:8px;text-align:right;"><button class="btn btn-primary btn-sm" id="addCommentBtn">Comentar</button></div></div>';
   }
   if(state.drawerTab==='anexos'){
@@ -952,7 +952,7 @@ function drawerTabBody(t,a){
   }
   if(state.drawerTab==='historico'){
     var hist = t.history.slice().reverse();
-    return (hist.length? hist.map(function(h){ return '<div class="hist-item"><span class="dot"></span><div><div><b>'+userLabel(h.by)+'</b> alterou '+h.field+(h.from?' de "'+esc(h.from)+'"':'')+' para "'+esc(h.to)+'"</div><div style="color:var(--text-muted);font-size:11px;">'+fmtDateTime(h.at)+'</div></div></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhuma alteração registrada ainda.</div>');
+    return (hist.length? hist.map(function(h){ return '<div class="hist-item"><span class="dot"></span><div><div><b>'+esc(userLabel(h.by))+'</b> alterou '+h.field+(h.from?' de "'+esc(h.from)+'"':'')+' para "'+esc(h.to)+'"</div><div style="color:var(--text-muted);font-size:11px;">'+fmtDateTime(h.at)+'</div></div></div>'; }).join('') : '<div class="empty-state" style="padding:20px 0;">Nenhuma alteração registrada ainda.</div>');
   }
   return '';
 }
@@ -983,8 +983,8 @@ function renderModal(){
       '</div>' +
       '<div class="field-row"><label>Projeto (opcional)</label><select id="mProject"><option value="">Nenhum</option>'+PROJECTS.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join('')+'</select></div>' +
       '<div class="field-two">' +
-        '<div class="field-row"><label>Solicitante</label><select id="mRequester">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===state.currentUserId?' selected':'')+'>'+u.name+'</option>';}).join('')+'</select></div>' +
-        '<div class="field-row"><label>Responsável</label><select id="mResponsible">'+USERS.map(function(u){return '<option value="'+u.id+'">'+u.name+'</option>';}).join('')+'</select></div>' +
+        '<div class="field-row"><label>Solicitante</label><select id="mRequester">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===state.currentUserId?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select></div>' +
+        '<div class="field-row"><label>Responsável</label><select id="mResponsible">'+USERS.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>';}).join('')+'</select></div>' +
       '</div>' +
       '<div class="field-two">' +
         '<div class="field-row"><label>Data de início</label><input type="date" id="mStart"></div>' +
