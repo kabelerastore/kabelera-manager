@@ -53,6 +53,11 @@
       initials: String(r.name).trim().slice(0, 2).toUpperCase() };
   }
   function notifFromRow(r) { return { id: r.id, userId: r.user_id, text: r.text, taskId: r.task_id || null, createdAt: r.created_at, read: r.read }; }
+  function mindmapFromRow(r) {
+    return { id: r.id, title: r.title, data: r.data || {}, createdBy: r.created_by || null,
+      isActive: r.is_active, createdAt: r.created_at, updatedAt: r.updated_at };
+  }
+  function mindmapToRow(m) { return { title: m.title, data: m.data || {} }; }
 
   // ---- runtime (browser) ----
   var sb = null;
@@ -102,6 +107,23 @@
   async function insertProject(p) { return projectFromRow(must(await client().from('projects').insert(projectToRow(p)).select().single())); }
   async function setProjectActive(id, active) { return must(await client().from('projects').update({ is_active: active }).eq('id', id)); }
   async function updateProject(id, p) { return projectFromRow(must(await client().from('projects').update(projectToRow(p)).eq('id', id).select().single())); }
+  async function listMindmaps() {
+    return (must(await client().from('mindmaps').select('id,title,created_at,created_by')
+      .eq('is_active', true).order('created_at', { ascending: false })))
+      .map(function (r) { return { id: r.id, title: r.title, createdAt: r.created_at, createdBy: r.created_by }; });
+  }
+  async function getMindmap(id) { return mindmapFromRow(must(await client().from('mindmaps').select('*').eq('id', id).single())); }
+  async function insertMindmap(title, data) {
+    var session = (await client().auth.getSession()).data.session;
+    var row = { title: title, data: data || {}, created_by: session && session.user ? session.user.id : null };
+    return mindmapFromRow(must(await client().from('mindmaps').insert(row).select().single()));
+  }
+  async function updateMindmap(id, patch) {
+    var row = {}; if (patch.title !== undefined) row.title = patch.title; if (patch.data !== undefined) row.data = patch.data;
+    row.updated_at = new Date().toISOString();
+    return mindmapFromRow(must(await client().from('mindmaps').update(row).eq('id', id).select().single()));
+  }
+  async function setMindmapActive(id, active) { return must(await client().from('mindmaps').update({ is_active: active }).eq('id', id)); }
   async function insertNotifications(rows) { return must(await client().from('notifications').insert(rows)); }
   async function markNotifRead(id) { return must(await client().from('notifications').update({ read: true }).eq('id', id)); }
 
@@ -127,6 +149,9 @@
   return {
     taskFromRow: taskFromRow, taskToRow: taskToRow, projectFromRow: projectFromRow, projectToRow: projectToRow,
     areaFromRow: areaFromRow, profileFromRow: profileFromRow, notifFromRow: notifFromRow,
+    mindmapFromRow: mindmapFromRow, mindmapToRow: mindmapToRow,
+    listMindmaps: listMindmaps, getMindmap: getMindmap, insertMindmap: insertMindmap,
+    updateMindmap: updateMindmap, setMindmapActive: setMindmapActive,
     signIn: signIn, signOut: signOut, getSession: getSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
     loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, uploadFile: uploadFile, insertProject: insertProject,
     updateProject: updateProject, setProjectActive: setProjectActive, insertNotifications: insertNotifications, markNotifRead: markNotifRead,

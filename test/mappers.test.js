@@ -37,3 +37,22 @@ test('areaFromRow mantém subcats e flow', () => {
   assert.strictEqual(a.flow, 'creative');
   assert.deepStrictEqual(a.subcats, ['X']);
 });
+
+test('mindmapFromRow converte snake_case para camelCase', () => {
+  const row = { id: 'm1', title: 'Campanha', data: { id: 'n_1', text: 'Campanha', children: [] },
+    created_by: 'u1', is_active: true, created_at: '2026-10-09T10:00:00Z', updated_at: '2026-10-09T11:00:00Z' };
+  const m = KMDB.mindmapFromRow(row);
+  assert.strictEqual(m.id, 'm1');
+  assert.strictEqual(m.title, 'Campanha');
+  assert.strictEqual(m.data.text, 'Campanha');
+  assert.strictEqual(m.createdBy, 'u1');
+  assert.strictEqual(m.isActive, true);
+});
+
+test('mindmapToRow nao inclui id e leva title+data', () => {
+  const m = { id: 'm1', title: 'X', data: { id: 'n_1', text: 'X', children: [] } };
+  const row = KMDB.mindmapToRow(m);
+  assert.strictEqual(row.id, undefined);
+  assert.strictEqual(row.title, 'X');
+  assert.strictEqual(row.data.text, 'X');
+});
