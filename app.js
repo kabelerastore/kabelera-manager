@@ -74,7 +74,8 @@ function icon(name, size){
     clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>',
     thumbUp:'<circle cx="12" cy="12" r="9.5"/><path d="M8 12.5 11 15.5 16 9.5"/>',
     xCircle:'<circle cx="12" cy="12" r="9.5"/><path d="M9 9l6 6M15 9l-6 6"/>',
-    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6h.01"/>'
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6h.01"/>',
+    mapa:'<circle cx="5" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M7 12h4M11 12l5-5M11 12l5 5"/>'
   };
   return p + (paths[name]||'') + '</svg>';
 }
@@ -142,7 +143,9 @@ var state = {
   calMonthOffset:0,
   filters:{}, // per areaId key -> {responsavel, subcat, prioridade, prazo}
   sidebarOpen:false,
-  notifOpen:false
+  notifOpen:false,
+  mindmaps:[], mapLoaded:false, currentMapId:null, map:null,
+  mapSelectedNodeId:null, mapSaveState:'salvo', mapMoveMode:false
 };
 function getFilters(key){ return state.filters[key] || (state.filters[key]={responsavel:'',subcat:'',prioridade:'',prazo:''}); }
 
@@ -388,6 +391,7 @@ var NAV_AFTER_AREAS = [
   {route:'#/minhas-tarefas', label:'Minhas Tarefas', icon:'tasks', match:'minhas-tarefas'},
   {route:'#/calendario', label:'Calendário', icon:'calendar', match:'calendario'},
   {route:'#/metricas', label:'Métricas de Redes Sociais', icon:'chart', match:'metricas'},
+  {route:'#/mapas', label:'Mapas Mentais', icon:'mapa', match:'mapas'},
   {route:'#/equipe', label:'Equipe', icon:'team', match:'equipe'},
   {route:'#/configuracoes', label:'Configurações', icon:'settings', match:'configuracoes'}
 ];
@@ -432,6 +436,7 @@ function pageTitleFor(r){
   if(r.name==='equipe') return ['Equipe', 'Carga de trabalho por pessoa'];
   if(r.name==='configuracoes') return ['Configurações', 'Áreas, fluxos e usuários'];
   if(r.name==='metricas') return ['Métricas de Redes Sociais', 'Redes sociais da Kabelera'];
+  if(r.name==='mapas') return ['Mapas Mentais', 'Seus mapas de campanha'];
   return ['Kabelera Manager', ''];
 }
 function renderTopbar(){
@@ -484,8 +489,10 @@ function renderContent(){
   else if(r.name==='equipe') el.innerHTML = viewTeam();
   else if(r.name==='configuracoes') el.innerHTML = viewSettings();
   else if(r.name==='metricas') el.innerHTML = viewMetrics();
+  else if(r.name==='mapas') el.innerHTML = viewMindmaps();
   else el.innerHTML = '<div class="empty-state">Página não encontrada.</div>';
   wireDynamicCharts();
+  if(r.name==='mapas' && state.currentMapId) renderMapStage();
 }
 
 /* ---- Métricas (relatório de redes sociais embutido) ---- */
@@ -493,6 +500,163 @@ function viewMetrics(){
   return '<div class="metrics-wrap">' +
     '<iframe id="metricsFrame" class="metrics-frame" src="relatorios/redes-sociais.html?v=1" title="Relatório de redes sociais da Kabelera"></iframe>' +
     '</div>';
+}
+
+/* ======================= MAPAS MENTAIS ======================= */
+var MAP_SWATCHES = ['#fffa2a','#db0808','#2f80ed','#27ae60','#9b51e0','#e8590c'];
+
+function viewMindmaps(){
+  if(state.currentMapId) return viewMapEditor();
+  if(!state.mapLoaded){
+    KMDB.listMindmaps().then(function(list){ state.mindmaps=list; state.mapLoaded=true; if(state.route.name==='mapas' && !state.currentMapId) renderContent(); })
+      .catch(function(){ showToast('Não foi possível carregar os mapas.'); });
+    return '<div class="empty-state" style="padding:40px 0;">Carregando mapas...</div>';
+  }
+  var cards = state.mindmaps.map(function(m){
+    return '<div class="mapcard" data-open-map="'+m.id+'">'+
+      '<div class="mapcard-thumb"></div>'+
+      '<b>'+esc(m.title)+'</b>'+
+      '<div class="mapcard-row"><small>'+fmtDateLong((m.createdAt||'').slice(0,10))+'</small>'+
+      '<span class="trash" data-del-map="'+m.id+'">excluir</span></div></div>';
+  }).join('');
+  return '<div class="mm-head"><h3 style="margin:0;">Mapas Mentais</h3><button class="btn btn-primary" id="newMapBtn">'+icon('plus',16)+'<span>Novo mapa</span></button></div>'+
+    '<div class="maps-grid">'+(cards || '<div class="empty-state">Nenhum mapa ainda. Crie o primeiro.</div>')+'</div>';
+}
+
+function viewMapEditor(){
+  var m=state.map; if(!m) return '';
+  var sel=state.mapSelectedNodeId; var isRoot = m.data && sel===m.data.id;
+  var selNode = KM.mmFind(m.data, sel);
+  var saveTxt = state.mapSaveState==='salvando'?'salvando...':state.mapSaveState==='erro'?'erro ao salvar':'salvo';
+  var bar = '<div class="mm-actionbar">'+
+    '<span class="mm-sel">Ramo: <b>'+(selNode?esc(selNode.text):'—')+'</b></span>'+
+    '<button class="chip" data-mm="child">+ ramo filho</button>'+
+    '<button class="chip" data-mm="sibling"'+(isRoot?' disabled':'')+'>+ ramo irmão</button>'+
+    '<button class="chip" data-mm="rename">renomear</button>'+
+    '<span class="chip">cor <input type="color" id="mmColor" value="'+(selNode?KM.mmSafeColor(selNode.color):'#2f80ed')+'">'+
+      '<span class="mm-swatches">'+MAP_SWATCHES.map(function(c){return '<span class="mm-sw" data-mm-color="'+c+'" style="background:'+c+'"></span>';}).join('')+'</span></span>'+
+    '<button class="chip'+(state.mapMoveMode?' chip-on':'')+'" data-mm="move"'+(isRoot?' disabled':'')+'>mover</button>'+
+    '<button class="chip chip-danger" data-mm="delete"'+(isRoot?' disabled':'')+'>excluir</button>'+
+    '</div>';
+  return '<div class="mm-top"><button class="btn btn-ghost btn-sm" id="mapBackBtn">'+icon('chevronLeft',14)+'<span>voltar</span></button>'+
+    '<span class="mm-name">'+esc(m.title)+'</span>'+
+    '<span class="mm-save mm-save-'+state.mapSaveState+'">'+saveTxt+'</span></div>'+
+    bar + (state.mapMoveMode?'<div class="mm-movehint">Toque no ramo-destino pra pendurar o ramo ali.</div>':'')+
+    '<div class="mm-canvas"><div class="mm-stage" id="mmStage"></div></div>';
+}
+
+function renderMapStage(){
+  var stage=document.getElementById('mmStage'); if(!stage||!state.map) return;
+  var root=state.map.data; if(!root || !root.id){ stage.innerHTML='<div class="empty-state">Mapa vazio.</div>'; return; }
+  stage.innerHTML='';
+  var COLW=210, GAP=40, Y0=16;
+  var pos={}; KM.mmLayout(root,{colW:COLW,gap:GAP,startY:Y0}).forEach(function(p){ pos[p.id]=p; });
+  var nodes=[];
+  (function walk(n){
+    var p=pos[n.id]; if(!p) return;
+    var c=KM.mmSafeColor(n.color);
+    var el=document.createElement('div');
+    el.className='mm-node'+(n.id===state.mapSelectedNodeId?' sel':'');
+    el.style.setProperty('--c',c); el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    el.setAttribute('data-node',n.id); el.setAttribute('draggable','true');
+    el.textContent=n.text;
+    var kids=n.children||[];
+    if(kids.length){ var cc=document.createElement('span'); cc.className='mm-collapse'; cc.setAttribute('data-collapse',n.id); cc.textContent=n.collapsed?'+':'–'; el.appendChild(cc); }
+    stage.appendChild(el); n._el=el; nodes.push(n);
+    if(!n.collapsed) kids.forEach(walk);
+  })(root);
+  var maxY=0,maxX=0; nodes.forEach(function(n){ maxY=Math.max(maxY,pos[n.id].y); maxX=Math.max(maxX,pos[n.id].x+n._el.offsetWidth); });
+  stage.style.height=(maxY+40)+'px'; stage.style.minWidth=(maxX+20)+'px';
+  var svgns='http://www.w3.org/2000/svg';
+  var svg=document.createElementNS(svgns,'svg'); svg.setAttribute('class','mm-wires');
+  (function wire(n){
+    if(n.collapsed) return;
+    (n.children||[]).forEach(function(k){
+      if(!pos[k.id]||!k._el) return;
+      var x1=n._el.offsetLeft+n._el.offsetWidth, y1=pos[n.id].y, x2=k._el.offsetLeft, y2=pos[k.id].y, mx=(x1+x2)/2;
+      var path=document.createElementNS(svgns,'path');
+      path.setAttribute('d','M '+x1+' '+y1+' C '+mx+' '+y1+', '+mx+' '+y2+', '+x2+' '+y2);
+      path.setAttribute('fill','none'); path.setAttribute('stroke',KM.mmSafeColor(k.color));
+      path.setAttribute('stroke-width','1.4'); path.setAttribute('stroke-linecap','round'); path.setAttribute('opacity','0.85');
+      svg.appendChild(path);
+      var dot=document.createElementNS(svgns,'circle'); dot.setAttribute('cx',x2); dot.setAttribute('cy',y2); dot.setAttribute('r','2.2'); dot.setAttribute('fill',KM.mmSafeColor(k.color));
+      svg.appendChild(dot);
+      wire(k);
+    });
+  })(root);
+  stage.insertBefore(svg, stage.firstChild);
+}
+
+/* ---- mapas: fluxo e persistência ---- */
+var _mapSaveTimer=null;
+function mapMutate(fn){
+  if(!state.map) return;
+  fn(state.map.data);
+  state.mapSaveState='salvando';
+  renderContent();
+  clearTimeout(_mapSaveTimer);
+  _mapSaveTimer=setTimeout(mapAutosave, 800);
+}
+function mapAutosave(){
+  if(!state.map) return;
+  var id=state.map.id;
+  KMDB.updateMindmap(id,{ title: state.map.title, data: state.map.data })
+    .then(function(){ if(state.map && state.map.id===id){ state.mapSaveState='salvo'; updateSaveBadge(); } })
+    .catch(function(){ if(state.map && state.map.id===id){ state.mapSaveState='erro'; updateSaveBadge(); showToast('Não foi possível salvar o mapa.'); } });
+}
+function updateSaveBadge(){
+  var b=document.querySelector('.mm-save'); if(!b) return;
+  b.className='mm-save mm-save-'+state.mapSaveState;
+  b.textContent=state.mapSaveState==='salvando'?'salvando...':state.mapSaveState==='erro'?'erro ao salvar':'salvo';
+}
+function openSimplePrompt(titulo, label, cb, valorInicial){
+  var old=document.getElementById('mm-prompt-root'); if(old) old.remove();
+  var wrap=document.createElement('div'); wrap.id='mm-prompt-root'; wrap.className='modal-overlay';
+  wrap.innerHTML='<div class="modal" style="max-width:420px;">'+
+    '<div class="modal-head"><h2>'+esc(titulo)+'</h2><button class="drawer-close" id="mmPromptClose" style="margin-left:auto;">'+icon('close',16)+'</button></div>'+
+    '<div class="modal-body"><div class="field-row"><label>'+esc(label)+'</label><input type="text" id="mmPromptInput" value="'+esc(valorInicial||'')+'"></div></div>'+
+    '<div class="modal-foot"><button class="btn btn-ghost" id="mmPromptCancel">Cancelar</button><button class="btn btn-primary" id="mmPromptOk">Salvar</button></div>'+
+    '</div>';
+  document.body.appendChild(wrap);
+  var input=document.getElementById('mmPromptInput'); input.focus(); input.select();
+  function close(){ wrap.remove(); }
+  function ok(){ var v=input.value; close(); cb(v); }
+  document.getElementById('mmPromptClose').onclick=close;
+  document.getElementById('mmPromptCancel').onclick=close;
+  document.getElementById('mmPromptOk').onclick=ok;
+  wrap.addEventListener('click', function(e){ if(e.target===wrap) close(); });
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); ok(); } if(e.key==='Escape'){ close(); } });
+}
+function createMapFlow(){
+  openSimplePrompt('Novo mapa', 'Nome do mapa', function(nome){
+    if(!nome || !nome.trim()) return;
+    var root = KM.mmNewNode(nome.trim(), '#fffa2a');
+    KMDB.insertMindmap(nome.trim(), root).then(function(m){
+      state.mapLoaded=false; state.currentMapId=m.id; state.map=m; state.mapSelectedNodeId=root.id; state.mapSaveState='salvo';
+      renderContent();
+    }).catch(function(){ showToast('Não foi possível criar o mapa.'); });
+  });
+}
+function openMap(id){
+  KMDB.getMindmap(id).then(function(m){
+    state.currentMapId=m.id; state.map=m;
+    state.mapSelectedNodeId = m.data && m.data.id ? m.data.id : null;
+    state.mapSaveState='salvo'; state.mapMoveMode=false;
+    renderContent();
+  }).catch(function(){ showToast('Não foi possível abrir o mapa.'); });
+}
+function backToMapList(){ state.currentMapId=null; state.map=null; state.mapLoaded=false; state.mapMoveMode=false; renderContent(); }
+function deleteMap(id){
+  if(!window.confirm('Excluir este mapa? Ele sai da lista.')) return;
+  KMDB.setMindmapActive(id,false).then(function(){ state.mapLoaded=false; renderContent(); })
+    .catch(function(){ showToast('Não foi possível excluir o mapa.'); });
+}
+function mapRenameNode(id){
+  var n=KM.mmFind(state.map.data,id); if(!n) return;
+  openSimplePrompt('Renomear ramo','Texto do ramo', function(novo){
+    if(novo===null||novo===undefined) return; var txt=novo.trim(); if(!txt) return;
+    mapMutate(function(root){ KM.mmUpdate(root,id,{text:txt}); if(root.id===id) state.map.title=txt; });
+  }, n.text);
 }
 
 /* ---- Dashboard ---- */
@@ -1068,6 +1232,12 @@ document.addEventListener('click', function(e){
   if(e.target.closest('#themeToggleBtn')){ applyTheme(currentTheme()==='dark'?'light':'dark'); return; }
 
   var navBtn = e.target.closest('[data-nav]');
+  if(navBtn && navBtn.getAttribute('data-nav')==='#/mapas'){
+    state.currentMapId=null; state.map=null; state.mapLoaded=false; state.mapMoveMode=false;
+    if(state.route.name==='mapas'){ renderContent(); } else { navigate('#/mapas'); }
+    if(state.sidebarOpen){ state.sidebarOpen=false; syncSidebar(); }
+    return;
+  }
   if(navBtn){ navigate(navBtn.getAttribute('data-nav')); if(state.sidebarOpen){ state.sidebarOpen=false; syncSidebar(); } return; }
 
   if(e.target.closest('#sidebarClose') || e.target.closest('#sidebarOverlay')){ state.sidebarOpen=false; syncSidebar(); return; }
@@ -1094,6 +1264,40 @@ document.addEventListener('click', function(e){
     });
     closeModal(); showToast('Tarefa criada.');
     return;
+  }
+
+  // ---- Mapas Mentais ----
+  if(e.target.closest('#newMapBtn')){ createMapFlow(); return; }
+  var delMap=e.target.closest('[data-del-map]');
+  if(delMap){ e.stopPropagation(); deleteMap(delMap.getAttribute('data-del-map')); return; }
+  var openMapEl=e.target.closest('[data-open-map]');
+  if(openMapEl){ openMap(openMapEl.getAttribute('data-open-map')); return; }
+  if(e.target.closest('#mapBackBtn')){ backToMapList(); return; }
+  if(state.map && state.route.name==='mapas' && state.currentMapId){
+    var cl=e.target.closest('[data-collapse]');
+    if(cl){ var cid=cl.getAttribute('data-collapse'); var cn=KM.mmFind(state.map.data,cid); mapMutate(function(root){ KM.mmUpdate(root,cid,{collapsed:cn?!cn.collapsed:true}); }); return; }
+    var mm=e.target.closest('[data-mm]');
+    if(mm){
+      var act=mm.getAttribute('data-mm'); var sel=state.mapSelectedNodeId; var root=state.map.data;
+      if(act==='child'){ var nc=KM.mmNewNode('Novo ramo', KM.mmDefaultChildColor(root,sel)); mapMutate(function(r){ KM.mmAddChild(r,sel,nc); }); state.mapSelectedNodeId=nc.id; renderContent(); return; }
+      if(act==='sibling'){ var p=KM.mmFindParent(root,sel); if(!p) return; var ns=KM.mmNewNode('Novo ramo', KM.mmDefaultChildColor(root,p.id)); mapMutate(function(r){ KM.mmAddSibling(r,sel,ns); }); state.mapSelectedNodeId=ns.id; renderContent(); return; }
+      if(act==='rename'){ mapRenameNode(sel); return; }
+      if(act==='delete'){ if(root.id===sel) return; if(!window.confirm('Excluir este ramo e tudo que pendura nele?')) return; var par=KM.mmFindParent(root,sel); mapMutate(function(r){ KM.mmRemove(r,sel); }); state.mapSelectedNodeId=par?par.id:root.id; renderContent(); return; }
+      if(act==='move'){ if(root.id===sel) return; state.mapMoveMode=!state.mapMoveMode; renderContent(); return; }
+      return;
+    }
+    var sw=e.target.closest('[data-mm-color]');
+    if(sw){ var col=sw.getAttribute('data-mm-color'); mapMutate(function(r){ KM.mmUpdate(r,state.mapSelectedNodeId,{color:col}); }); return; }
+    var nd=e.target.closest('[data-node]');
+    if(nd){
+      var nid=nd.getAttribute('data-node');
+      if(state.mapMoveMode && state.mapSelectedNodeId && nid!==state.mapSelectedNodeId){
+        var moving=state.mapSelectedNodeId; state.mapMoveMode=false;
+        mapMutate(function(r){ KM.mmMove(r, moving, nid); });
+        return;
+      }
+      state.mapSelectedNodeId=nid; renderContent(); return;
+    }
   }
 
   if(e.target.closest('#newProjectBtn')){ openProjectModal(null); return; }
@@ -1187,6 +1391,10 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('change', function(e){
+  if(e.target.id==='mmColor' && state.map && state.mapSelectedNodeId){
+    var c=e.target.value; mapMutate(function(r){ KM.mmUpdate(r,state.mapSelectedNodeId,{color:c}); });
+    return;
+  }
   if(e.target.matches('[data-move-task]')){
     moveTask(e.target.getAttribute('data-move-task'), e.target.value);
     renderContent();
@@ -1223,6 +1431,25 @@ document.addEventListener('change', function(e){
   if(e.target.matches('[data-toggle-check]')){ toggleChecklist(state.drawerTaskId, e.target.getAttribute('data-toggle-check')); renderDrawer(); return; }
   if(e.target.matches('[data-toggle-subtask]')){ toggleSubtask(state.drawerTaskId, e.target.getAttribute('data-toggle-subtask')); renderDrawer(); return; }
 });
+
+/* mapas: atalhos de teclado (desktop) */
+document.addEventListener('keydown', function(e){
+  if(state.route.name!=='mapas' || !state.currentMapId || !state.map || !state.mapSelectedNodeId) return;
+  var tag=document.activeElement && document.activeElement.tagName;
+  if(tag==='INPUT' || tag==='TEXTAREA') return;
+  var root=state.map.data, sel=state.mapSelectedNodeId;
+  if(e.key==='Tab'){ e.preventDefault(); var nc=KM.mmNewNode('Novo ramo',KM.mmDefaultChildColor(root,sel)); mapMutate(function(r){KM.mmAddChild(r,sel,nc);}); state.mapSelectedNodeId=nc.id; renderContent(); }
+  else if(e.key==='Enter'){ e.preventDefault(); var p=KM.mmFindParent(root,sel); if(!p) return; var ns=KM.mmNewNode('Novo ramo',KM.mmDefaultChildColor(root,p.id)); mapMutate(function(r){KM.mmAddSibling(r,sel,ns);}); state.mapSelectedNodeId=ns.id; renderContent(); }
+  else if(e.key==='F2'){ e.preventDefault(); mapRenameNode(sel); }
+  else if(e.key==='Delete'){ if(root.id===sel) return; var par=KM.mmFindParent(root,sel); mapMutate(function(r){KM.mmRemove(r,sel);}); state.mapSelectedNodeId=par?par.id:root.id; renderContent(); }
+});
+
+/* mapas: arrastar pra reorganizar */
+var _mapDragId=null;
+document.addEventListener('dragstart', function(e){ var n=e.target.closest('[data-node]'); if(n){ _mapDragId=n.getAttribute('data-node'); if(e.dataTransfer) e.dataTransfer.effectAllowed='move'; } });
+document.addEventListener('dragover', function(e){ var n=e.target.closest('[data-node]'); if(n && _mapDragId){ e.preventDefault(); document.querySelectorAll('.mm-node.mm-drop').forEach(function(x){x.classList.remove('mm-drop');}); if(n.getAttribute('data-node')!==_mapDragId) n.classList.add('mm-drop'); } });
+document.addEventListener('drop', function(e){ var n=e.target.closest('[data-node]'); if(n && _mapDragId){ e.preventDefault(); var target=n.getAttribute('data-node'); var moving=_mapDragId; _mapDragId=null; document.querySelectorAll('.mm-node.mm-drop').forEach(function(x){x.classList.remove('mm-drop');}); if(target!==moving && state.map){ mapMutate(function(r){ KM.mmMove(r,moving,target); }); } } });
+document.addEventListener('dragend', function(){ _mapDragId=null; document.querySelectorAll('.mm-node.mm-drop').forEach(function(x){x.classList.remove('mm-drop');}); });
 
 /* drag & drop */
 document.addEventListener('dragstart', function(e){
