@@ -231,7 +231,7 @@ function updateTaskField(taskId, field, value){
   var old = t[field]; if(old===value) return;
   var prev = snapshot(t);
   t[field]=value;
-  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega',startDate:'data de início',title:'título',description:'descrição',projectId:'projeto',participants:'participantes'};
+  var labelMap={responsibleId:'responsável',priority:'prioridade',dueDate:'prazo de entrega',startDate:'data de início',title:'título',description:'descrição',projectId:'projeto',participants:'participantes',subcategory:'subcategoria'};
   function fieldLabel(f,v){
     if(f==='responsibleId') return userLabel(v);
     if(f==='projectId') return v && project(v) ? project(v).name : '—';
@@ -250,6 +250,24 @@ function updateTaskField(taskId, field, value){
       p.then(function(ok){ if(ok){ KMDB.insertNotifications(added.map(function(participantId){ return { user_id:participantId, task_id:t.id, text:userLabel(state.currentUserId)+' adicionou você como participante da tarefa "'+t.title+'".' }; })).catch(function(){}); } });
     }
   }
+}
+function changeTaskArea(taskId, newAreaId){
+  var t=taskById(taskId); if(!t) return;
+  var na=area(newAreaId); if(!na || t.areaId===newAreaId) return;
+  var prev=snapshot(t);
+  var oldArea=area(t.areaId); var oldAreaName=oldArea?oldArea.name:t.areaId;
+  var oldSub=t.subcategory, oldStatus=t.status;
+  t.areaId=newAreaId;
+  // subcategoria sempre reseta: cada área tem a própria lista
+  t.subcategory=(na.subcats&&na.subcats.length)?na.subcats[0]:'';
+  // status só reseta se não existir no fluxo da nova área
+  var cols=FLOWS[na.flow]||[];
+  if(cols.indexOf(t.status)===-1){ t.status=cols[0]||t.status; }
+  if(!KM.isFinalStatus(na.flow, t.status)){ t.completedAt=null; }
+  pushHistory(t,'área',oldAreaName,na.name);
+  if(oldSub!==t.subcategory) pushHistory(t,'subcategoria',oldSub,t.subcategory);
+  if(oldStatus!==t.status) pushHistory(t,'status',oldStatus,t.status);
+  persistTask(t, prev);
 }
 function addChecklistItem(taskId, text){
   if(!text.trim()) return;
@@ -906,6 +924,10 @@ function drawerTabBody(t,a){
     return '<div class="field-row"><label>Título</label><input type="text" data-field="title" value="'+esc(t.title)+'"></div>' +
       '<div class="field-row"><label>Descrição</label><textarea data-field="description" rows="3" placeholder="Sem descrição.">'+esc(t.description||'')+'</textarea></div>' +
       '<div class="field-two">' +
+      '<div class="field-row"><label>Área</label><select data-field="areaId">'+AREAS.map(function(ar){return '<option value="'+ar.id+'"'+(ar.id===t.areaId?' selected':'')+'>'+esc(ar.name)+'</option>';}).join('')+'</select></div>' +
+      '<div class="field-row"><label>Subcategoria</label><select data-field="subcategory">'+(a.subcats||[]).map(function(s){return '<option value="'+esc(s)+'"'+(s===t.subcategory?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select></div>' +
+      '</div>' +
+      '<div class="field-two">' +
       '<div class="field-row"><label>Responsável</label><select data-field="responsibleId">'+USERS.map(function(u){return '<option value="'+u.id+'"'+(u.id===t.responsibleId?' selected':'')+'>'+esc(u.name)+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Prioridade</label><select data-field="priority">'+['Baixa','Média','Alta','Urgente'].map(function(p){return '<option value="'+p+'"'+(p===t.priority?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div>' +
       '<div class="field-row"><label>Status</label><select data-field="status">'+FLOWS[a.flow].map(function(c){return '<option value="'+esc(c)+'"'+(c===t.status?' selected':'')+'>'+c+'</option>';}).join('')+'</select></div>' +
@@ -1184,6 +1206,11 @@ document.addEventListener('change', function(e){
   }
   if(e.target.matches('[data-field="projectId"]')){
     updateTaskField(state.drawerTaskId, 'projectId', e.target.value||null);
+    renderDrawer(); renderContent();
+    return;
+  }
+  if(e.target.matches('[data-field="areaId"]')){
+    changeTaskArea(state.drawerTaskId, e.target.value);
     renderDrawer(); renderContent();
     return;
   }
