@@ -20,6 +20,8 @@ Uma aba **"Mapas Mentais"** no menu, com mapas soltos (independentes de projeto/
 - **Formato:** árvore **horizontal** — tema central à esquerda, ramos abrindo pra direita em níveis. (Formato "sol" pros dois lados foi descartado por YAGNI/robustez; pode evoluir depois.)
 - **Ramo:** texto + **cor livre** (`<input type="color">`), com atalhos de swatches da marca Kabelera ao lado. Ramo novo **herda a cor do pai** por padrão.
 - **Recolher/expandir:** ramo com filhos tem um controle pra colapsar aquele galho.
+- **Reorganizar (mover):** o usuário pode arrastar um ramo pra pendurar em OUTRO ramo (trocar de galho / reparent) e reordenar irmãos. O app continua fazendo o layout automático — não é posicionamento livre em tela branca. A raiz não pode ser movida; um ramo não pode ser solto dentro de um descendente dele (evita laço).
+- **Aparência dos ramos:** fundo da cor **translúcido** (~20%), com bolinha e texto na cor — idêntico ao estilo de pílula que o gestor já usa (`.dep-pill`: `background:rgba(var(--dep-rgb),.22)`). Como a transparência já suaviza, a cor base pode ser viva (incluindo o amarelo `#fffa2a` e o vermelho `#db0808` da marca) — fica fosca na tela de qualquer jeito. **Sem grade no fundo** do canvas. Linhas conectoras com **contraste** (token próprio `--wire`, cinza claro visível no escuro e no claro), não na cor do fundo.
 - **Autosave:** salva sozinho após cada mudança (debounce), sem botão de salvar.
 - **Tema:** respeita claro/escuro do app.
 - **Virar tarefa do gestor:** fora de escopo agora (pode plugar no futuro).
@@ -99,6 +101,8 @@ Funções que operam sobre o objeto-árvore e **não tocam no DOM**. Convenção
 - `addChild(root, parentId, node)` → empurra `node` em `children` do pai.
 - `addSibling(root, nodeId, node)` → insere `node` logo depois de `nodeId` sob o mesmo pai (no-op se `nodeId` for a raiz → vira filho? **Decisão:** irmão da raiz não existe; a ação "irmão" fica desabilitada quando o selecionado é a raiz).
 - `removeNode(root, id)` → remove o nó e todo o galho; **no-op se `id` for a raiz**.
+- `moveNode(root, nodeId, newParentId, index)` → tira `nodeId` de onde está e insere como filho de `newParentId` na posição `index` (reparent + reordenar). **No-op se**: `nodeId` for a raiz, ou `newParentId` for descendente de `nodeId` (evita laço), ou `newParentId === nodeId`. Reordenar irmão = mover pro mesmo pai em outro `index`.
+- `isDescendant(root, ancestorId, maybeDescId)` → auxiliar pro guard de laço do `moveNode`.
 - `updateNode(root, id, patch)` → aplica `{text?, color?, collapsed?}`.
 - `defaultChildColor(root, parentId)` → devolve a cor do pai (herança), com fallback.
 - `safeColor(c)` → devolve `c` só se casar com `/^#[0-9a-fA-F]{3,8}$/`, senão uma cor padrão. **Usada tanto na renderização quanto antes de salvar.**
@@ -135,9 +139,11 @@ Expostos no retorno do módulo `KMDB`. Não entram no `loadAll()`.
 
 - **Topo:** nome do mapa + botão "voltar pra lista" + indicador de autosave ("salvo"/"salvando…"/"erro ao salvar").
 - **Barra de ações do nó selecionado** (fixa no topo do editor, boa pra desktop e mobile): **+ ramo filho**, **+ ramo irmão** (desabilitado se raiz), **renomear**, **cor** (`input type=color` + swatches da marca), **excluir** (desabilitado se raiz; confirma antes, avisando que leva o galho junto).
-- **Canvas:** área rolável (scroll horizontal e vertical). Nós posicionados por `KM.layoutTree`: cada nó é um `div` absoluto, pílula arredondada com `background` = `KM.safeColor(node.color)` e texto `esc(node.text)`. Conectores pai→filho desenhados como `<svg>`/paths atrás dos nós.
+- **Canvas:** área rolável (scroll horizontal e vertical), **fundo liso** (sem grade). Nós posicionados por `KM.layoutTree`: cada nó é uma pílula arredondada **delicada** (borda fina, texto leve) com fundo **translúcido** na cor (~14-20% de opacidade, bolinha pequena + texto na cor), no espírito do `.dep-pill` do gestor. A cor passa por `KM.safeColor(node.color)` e o texto por `esc(node.text)`.
+- **Conectores (curvas delicadas, estilo MindMeister):** cada ligação pai→filho é um **path SVG com curva de Bézier** (não cotovelo reto), **fino** (~1.4px), **colorido com a cor do ramo-filho** (não `--wire`), com uma **bolinha pequena na junção** do filho. O SVG fica numa camada atrás dos nós (`pointer-events:none`). As posições vêm do `KM.layoutTree` (x por profundidade, y por slot) e das larguras medidas dos nós. Nada de grade nem de linha cinza reta — a referência é fina e orgânica.
 - **Seleção:** clique seleciona o nó (destaque com contorno). **Duplo-clique** ou **F2** entra em modo renomear (input inline). **Enter** confirma.
 - **Recolher/expandir:** nós com filhos mostram um controle (bolinha); alterna `collapsed` via `updateNode` e re-renderiza.
+- **Mover (reorganizar):** no **desktop**, arrastar um ramo e soltar sobre outro → reparent (`moveNode`); soltar entre dois irmãos → reordena. Feedback visual de "pode soltar aqui". No **mobile** (arrasto fino é frágil), a barra de ações tem um botão **"mover"**: seleciona o ramo, toca "mover", e aí toca no ramo-destino pra pendurar nele. Os dois caminhos chamam o mesmo `moveNode` (com os guards de raiz/laço).
 - **Atalhos (desktop):** com um nó selecionado — **Tab** = novo filho, **Enter** = novo irmão, **F2** = renomear, **Delete** = excluir. No mobile, tudo pelos botões.
 - **Herança de cor:** novo ramo nasce com `KM.defaultChildColor` (cor do pai).
 
@@ -155,7 +161,7 @@ Expostos no retorno do módulo `KMDB`. Não entram no `loadAll()`.
 
 ## Testes
 
-- **Unitários (`test/`, `node --test`):** `addChild`/`addSibling` (incluindo irmão-da-raiz = no-op), `removeNode` (remove galho; raiz = no-op), `updateNode`, `defaultChildColor` (herança), `safeColor` (aceita hex, rejeita lixo), `layoutTree` (slots e x por profundidade; respeita `collapsed`), mappers `mindmapFromRow`/`mindmapToRow`.
+- **Unitários (`test/`, `node --test`):** `addChild`/`addSibling` (incluindo irmão-da-raiz = no-op), `removeNode` (remove galho; raiz = no-op), `moveNode` (reparent, reordenar irmão, e no-op quando raiz / destino é descendente / destino == nó), `isDescendant`, `updateNode`, `defaultChildColor` (herança), `safeColor` (aceita hex, rejeita lixo), `layoutTree` (slots e x por profundidade; respeita `collapsed`), mappers `mindmapFromRow`/`mindmapToRow`.
 - **Navegador (lição da sessão anterior — teste unitário não pega tela branca):** abrir a aba, criar mapa, adicionar/renomear/colorir/excluir ramos, recolher galho, confirmar autosave e recarregar vendo persistir; conferir claro e escuro; conferir no mobile (botões).
 
 ## Deploy
@@ -169,7 +175,7 @@ Expostos no retorno do módulo `KMDB`. Não entram no `loadAll()`.
 ## Fora de escopo (futuro)
 
 - Formato "sol" (ramos pros dois lados).
-- Arrastar nós livremente / reordenar por arrasto.
+- Posicionamento livre em tela branca (soltar o ramo em qualquer ponto x/y). O que entra é reorganizar a árvore (reparent + reordenar); o layout continua automático.
 - Transformar um ramo em tarefa do gestor.
 - Anexos/links/ícones dentro do ramo.
 - Colaboração em tempo real (hoje é last-write-wins).
