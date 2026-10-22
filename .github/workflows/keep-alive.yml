@@ -1,0 +1,18 @@
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cutuca o Supabase pra mante-lo ativo
+        run: |
+          URL="https://wlrkfgbusvpaexndsdse.supabase.co/rest/v1/profiles?select=id&limit=1"
+          KEY="sb_publishable_EayJQhBZqfxkI4aSfPhwKA_S9caNqWI"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "Resposta do Supabase: HTTP $CODE"
+          if [ "$CODE" = "200" ]; then echo "OK - banco acordado."; else echo "ATENCAO: resposta inesperada ($CODE)."; exit 1; fi
