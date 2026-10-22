@@ -33,24 +33,27 @@
   }
 
   var FLOWS = {
-    creative: ['Backlog', 'Planejamento', 'Em produção', 'Revisão', 'Aprovação', 'Programado', 'Concluído'],
-    comercial: ['Novo Lead', 'Contato', 'Qualificação', 'Proposta', 'Negociação', 'Fechado', 'Pós-venda'],
-    financeiro: ['Pendente', 'Programado', 'Aguardando', 'Pago/Recebido', 'Conciliado'],
-    admin: ['Solicitado', 'A Fazer', 'Em Andamento', 'Aguardando Terceiro', 'Revisão', 'Concluído']
+    creative: ['Backlog', 'Planejamento', 'Iniciado', 'Em Andamento', 'Em produção', 'Revisão', 'Aprovação', 'Programado', 'Concluído', 'Adiado'],
+    comercial: ['Novo Lead', 'Iniciado', 'Em Andamento', 'Contato', 'Qualificação', 'Proposta', 'Negociação', 'Fechado', 'Pós-venda', 'Concluído', 'Adiado'],
+    financeiro: ['Pendente', 'Iniciado', 'Em Andamento', 'Programado', 'Aguardando', 'Pago/Recebido', 'Conciliado', 'Concluído', 'Adiado'],
+    admin: ['Solicitado', 'A Fazer', 'Iniciado', 'Em Andamento', 'Aguardando Terceiro', 'Revisão', 'Concluído', 'Adiado']
   };
   var FINAL_STATUSES = {
-    creative: ['Concluído'], comercial: ['Fechado', 'Pós-venda'],
-    financeiro: ['Pago/Recebido', 'Conciliado'], admin: ['Concluído']
+    creative: ['Concluído'], comercial: ['Fechado', 'Pós-venda', 'Concluído'],
+    financeiro: ['Pago/Recebido', 'Conciliado', 'Concluído'], admin: ['Concluído']
   };
   var RETURN_RULES = { creative: { 'Aprovação': 'Em produção' } };
 
   function isFinalStatus(flow, status) { return (FINAL_STATUSES[flow] || []).indexOf(status) > -1; }
   function nextStatusOnApprove(flow, status) {
     if (flow === 'creative' && status === 'Aprovação') return 'Programado';
+    if (isFinalStatus(flow, status)) return status; // ja concluido/final: nao avanca
     var cols = FLOWS[flow] || [];
     var i = cols.indexOf(status);
     if (i === -1 || i === cols.length - 1) return status;
-    return cols[i + 1];
+    var next = cols[i + 1];
+    if (next === 'Adiado') return status; // "Adiado" e estacionamento, nunca destino de aprovacao
+    return next;
   }
   function priorityRank(p) { return { 'Baixa': 0, 'Média': 1, 'Alta': 2, 'Urgente': 3 }[p] || 0; }
   function priorityClass(p) { return { 'Baixa': 'pr-good', 'Média': 'pr-warning', 'Alta': 'pr-serious', 'Urgente': 'pr-critical' }[p] || 'pr-good'; }

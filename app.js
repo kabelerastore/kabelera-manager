@@ -152,16 +152,17 @@ function getFilters(key){ return state.filters[key] || (state.filters[key]={resp
 
 /* ======================= HELPERS ======================= */
 function isFinal(t){ var a=area(t.areaId); return FINAL_STATUSES[a.flow].indexOf(t.status)>-1; }
-function isOverdue(t){ return t.dueDate && !isFinal(t) && t.dueDate < TODAY_ISO; }
-function isDueToday(t){ return t.dueDate === TODAY_ISO && !isFinal(t); }
-function isDueThisWeek(t){ if(!t.dueDate||isFinal(t)) return false; return t.dueDate>=TODAY_ISO && t.dueDate<=iso(7); }
+function isPostponed(t){ return t.status==='Adiado'; } // pausa intencional: sai da cobranca de prazo
+function isOverdue(t){ return t.dueDate && !isFinal(t) && !isPostponed(t) && t.dueDate < TODAY_ISO; }
+function isDueToday(t){ return t.dueDate === TODAY_ISO && !isFinal(t) && !isPostponed(t); }
+function isDueThisWeek(t){ if(!t.dueDate||isFinal(t)||isPostponed(t)) return false; return t.dueDate>=TODAY_ISO && t.dueDate<=iso(7); }
 function lastActivityISO(t){
   var dates=[t.createdAt];
   (t.history||[]).forEach(function(h){dates.push(h.at.slice(0,10));});
   (t.comments||[]).forEach(function(c){dates.push(c.createdAt.slice(0,10));});
   return dates.sort().pop();
 }
-function isStalled(t){ if(isFinal(t)) return false; var last=lastActivityISO(t); var days=(new Date(TODAY_ISO)-new Date(last))/86400000; return days>=7; }
+function isStalled(t){ if(isFinal(t)||isPostponed(t)) return false; var last=lastActivityISO(t); var days=(new Date(TODAY_ISO)-new Date(last))/86400000; return days>=7; }
 function isAwaitingApproval(t){ return t.status==='Aprovação'; }
 var priorityRank = KM.priorityRank, priorityClass = KM.priorityClass;
 function depStyle(areaId){ var a=area(areaId); return 'style="--dep-rgb:'+hexOrTokenRGB(a)+'"'; }

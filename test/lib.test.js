@@ -39,7 +39,35 @@ test('nextStatusOnApprove avanca creative de Aprovacao para Programado', () => {
 });
 
 test('nextStatusOnApprove avanca para proximo status em fluxo generico', () => {
-  assert.strictEqual(KM.nextStatusOnApprove('admin', 'A Fazer'), 'Em Andamento');
+  assert.strictEqual(KM.nextStatusOnApprove('admin', 'A Fazer'), 'Iniciado');
+  assert.strictEqual(KM.nextStatusOnApprove('admin', 'Iniciado'), 'Em Andamento');
+});
+
+test('todos os fluxos tem Iniciado, Em Andamento, Concluido e Adiado', () => {
+  ['creative', 'comercial', 'financeiro', 'admin'].forEach((flow) => {
+    const cols = KM.FLOWS[flow];
+    assert.ok(cols.includes('Iniciado'), flow + ' deve ter Iniciado');
+    assert.ok(cols.includes('Em Andamento'), flow + ' deve ter Em Andamento');
+    assert.ok(cols.includes('Concluído'), flow + ' deve ter Concluído');
+    assert.ok(cols.includes('Adiado'), flow + ' deve ter Adiado');
+    // "Adiado" e sempre a ultima coluna (estacionamento); "Concluído" logo antes
+    assert.strictEqual(cols[cols.length - 1], 'Adiado', flow + ': Adiado deve ser a ultima coluna');
+    assert.strictEqual(cols[cols.length - 2], 'Concluído', flow + ': Concluído deve ser a penultima coluna');
+    // "Em Andamento" aparece uma unica vez (sem duplicata de grafia)
+    assert.strictEqual(cols.filter((c) => c === 'Em Andamento').length, 1, flow + ': Em Andamento nao pode duplicar');
+  });
+});
+
+test('Concluido conta como final em todos os fluxos', () => {
+  ['creative', 'comercial', 'financeiro', 'admin'].forEach((flow) => {
+    assert.strictEqual(KM.isFinalStatus(flow, 'Concluído'), true, flow + ': Concluído e final');
+  });
+});
+
+test('Adiado nao e status final', () => {
+  ['creative', 'comercial', 'financeiro', 'admin'].forEach((flow) => {
+    assert.strictEqual(KM.isFinalStatus(flow, 'Adiado'), false, flow + ': Adiado nao e final');
+  });
 });
 
 test('nextStatusOnApprove no ultimo status permanece', () => {
