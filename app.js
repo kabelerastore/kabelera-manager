@@ -110,7 +110,7 @@ var TODAY_ISO = iso(0);
 function fmtDate(s){ if(!s) return '—'; var d=new Date(s+'T00:00:00'); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
 function fmtDateLong(s){ if(!s) return '—'; var d=new Date(s+'T00:00:00'); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}); }
 function fmtDateTime(s){ var d=new Date(s); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})+' às '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
-function nowISOTime(){ var d=new Date(TODAY); return d.toISOString(); }
+function nowISOTime(){ return new Date().toISOString(); } // hora real (p/ horário certo em comentários/histórico)
 function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9); }
 
 var USERS = [];
