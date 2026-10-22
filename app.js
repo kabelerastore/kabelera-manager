@@ -30,7 +30,12 @@ function showLoadError(e){
     (detail ? '<div class="login-error" style="min-height:auto;white-space:pre-wrap;margin-bottom:14px;">'+esc(detail)+'</div>' : '') +
     '<button class="btn btn-primary" id="retryLoadBtn">Tentar de novo</button></div>';
 }
+var _savingTasks = 0; // quantos salvamentos de tarefa estao em curso agora
 async function refreshData(){
+  // Nao relê do banco enquanto um salvamento esta acontecendo: a releitura poderia
+  // chegar antes do salvamento terminar e repintar a tela com o valor antigo. O estado
+  // local ja esta correto (otimista) e sera reconciliado no proximo refresh.
+  if(_savingTasks>0) return;
   try{
     var data = await KMDB.loadAll();
     USERS=data.users; AREAS=data.areas; PROJECTS=data.projects; TASKS=data.tasks; NOTIFICATIONS=data.notifications;
@@ -198,6 +203,7 @@ function showToast(msg){
 /* ---- mutation actions ---- */
 function snapshot(t){ return JSON.parse(JSON.stringify(t)); }
 async function persistTask(t, prevSnapshot, okMsg){
+  _savingTasks++;
   try{
     var saved = await KMDB.updateTask(t.id, t);
     Object.assign(t, saved);
@@ -208,6 +214,8 @@ async function persistTask(t, prevSnapshot, okMsg){
     showToast('Não foi possível salvar — tente de novo.');
     renderContent(); if(state.drawerTaskId) renderDrawer();
     return false;
+  }finally{
+    _savingTasks--;
   }
 }
 function moveTask(taskId, newStatus){
