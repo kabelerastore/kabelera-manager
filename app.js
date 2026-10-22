@@ -98,7 +98,8 @@ function applyTheme(tema){
 }
 
 /* ======================= DATA ======================= */
-var TODAY = new Date(2026,8,22);
+var _now = new Date();
+var TODAY = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
 function iso(offset){ var d = new Date(TODAY.getTime()+offset*86400000); return d.toISOString().slice(0,10); }
 var TODAY_ISO = iso(0);
 function fmtDate(s){ if(!s) return '—'; var d=new Date(s+'T00:00:00'); return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
