@@ -1117,12 +1117,15 @@ function closeDrawer(){
   document.getElementById('drawerOverlay').classList.remove('show');
   document.getElementById('taskDrawer').classList.remove('open');
 }
-/* Cresce o textarea conforme o conteudo, ate o teto do CSS (depois rola). */
+/* Cresce o textarea conforme o conteudo, ate o teto do CSS (depois rola).
+   So cresce: nunca encolhe abaixo do que ja esta na tela (respeita o arraste manual). */
 function autoGrowTextarea(el){
   if(!el) return;
-  el.style.height = 'auto';
   var max = parseInt(getComputedStyle(el).maxHeight, 10) || 460;
-  el.style.height = Math.min(el.scrollHeight, max) + 'px';
+  var current = el.offsetHeight;
+  el.style.height = 'auto';
+  var needed = el.scrollHeight;
+  el.style.height = Math.min(max, Math.max(needed, current)) + 'px';
 }
 function autoGrowAll(root){
   (root||document).querySelectorAll('.field-row textarea').forEach(autoGrowTextarea);
