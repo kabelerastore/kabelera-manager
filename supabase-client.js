@@ -64,7 +64,9 @@
   function client() {
     if (!sb) {
       var cfg = root.KM_CONFIG;
-      sb = root.supabase.createClient(cfg.url, cfg.anonKey);
+      sb = root.supabase.createClient(cfg.url, cfg.anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
     }
     return sb;
   }
@@ -75,6 +77,11 @@
   }
   async function signOut() { await client().auth.signOut(); }
   async function getSession() { return (await client().auth.getSession()).data.session; }
+  async function refreshSession() {
+    var r = await client().auth.refreshSession();
+    if (r.error) throw r.error;
+    return r.data.session;
+  }
   function onAuthChange(cb) { client().auth.onAuthStateChange(function (_e, s) { cb(s); }); }
   async function resetPassword(email) {
     return must(await client().auth.resetPasswordForEmail(email, { redirectTo: root.location.origin + root.location.pathname }));
@@ -152,7 +159,7 @@
     mindmapFromRow: mindmapFromRow, mindmapToRow: mindmapToRow,
     listMindmaps: listMindmaps, getMindmap: getMindmap, insertMindmap: insertMindmap,
     updateMindmap: updateMindmap, setMindmapActive: setMindmapActive,
-    signIn: signIn, signOut: signOut, getSession: getSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
+    signIn: signIn, signOut: signOut, getSession: getSession, refreshSession: refreshSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
     loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, uploadFile: uploadFile, insertProject: insertProject,
     updateProject: updateProject, setProjectActive: setProjectActive, insertNotifications: insertNotifications, markNotifRead: markNotifRead,
     insertArea: insertArea, updateArea: updateArea, updateProfile: updateProfile, createUser: createUser

@@ -4,8 +4,14 @@ var KM = window.KM;
 var KMDB = window.KMDB;
 var esc = KM.esc;
 
+function isAuthExpired(e){
+  var msg = String((e && e.message) || e).toLowerCase();
+  return msg.indexOf('jwt')>=0 || msg.indexOf('expired')>=0 ||
+         (e && (e.status===401 || e.code==='PGRST301'));
+}
 async function bootstrapData(){
   var attempt = 0;
+  var triedRefresh = false;
   async function tryLoad(){
     attempt++;
     try{
@@ -16,6 +22,13 @@ async function bootstrapData(){
       state.currentUserId = data.me ? data.me.id : (USERS[0] && USERS[0].id);
       return true;
     }catch(e){
+      // Token vencido: renova a sessao uma vez e tenta de novo. Se a renovacao
+      // falhar (sessao realmente encerrada), manda pro login em vez de travar.
+      if(isAuthExpired(e) && !triedRefresh){
+        triedRefresh = true;
+        try{ await KMDB.refreshSession(); attempt=0; return tryLoad(); }
+        catch(_){ await KMDB.signOut(); location.hash=''; showLogin(); return false; }
+      }
       if(attempt < 2) return tryLoad();
       showLoadError(e);
       return false;
