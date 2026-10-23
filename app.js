@@ -1117,6 +1117,19 @@ function closeDrawer(){
   document.getElementById('drawerOverlay').classList.remove('show');
   document.getElementById('taskDrawer').classList.remove('open');
 }
+/* Cresce o textarea conforme o conteudo, ate o teto do CSS (depois rola). */
+function autoGrowTextarea(el){
+  if(!el) return;
+  el.style.height = 'auto';
+  var max = parseInt(getComputedStyle(el).maxHeight, 10) || 460;
+  el.style.height = Math.min(el.scrollHeight, max) + 'px';
+}
+function autoGrowAll(root){
+  (root||document).querySelectorAll('.field-row textarea').forEach(autoGrowTextarea);
+}
+document.addEventListener('input', function(e){
+  if(e.target.matches && e.target.matches('.field-row textarea')) autoGrowTextarea(e.target);
+});
 function renderDrawer(){
   var t = taskById(state.drawerTaskId);
   var el = document.getElementById('taskDrawer');
@@ -1132,6 +1145,7 @@ function renderDrawer(){
     return '<button class="dtab'+(state.drawerTab===tb.id?' active':'')+'" data-drawer-tab="'+tb.id+'">'+tb.label+(count?' ('+count+')':'')+'</button>';
   }).join('') + '</div>';
   el.innerHTML = head + tabs + '<div class="drawer-body">' + drawerTabBody(t,a) + '</div>';
+  autoGrowAll(el);
 }
 function drawerTabBody(t,a){
   if(state.drawerTab==='detalhes'){
@@ -1231,6 +1245,7 @@ function renderModal(){
     '<div class="modal-foot"><button class="btn btn-ghost" id="modalCancelBtn">Cancelar</button><button class="btn btn-primary" id="modalSaveBtn">Criar tarefa</button></div>' +
   '</div>';
   document.body.appendChild(wrap);
+  autoGrowAll(wrap);
   document.getElementById('mArea').addEventListener('change', function(){
     state.modalArea = this.value; renderModal();
   });
@@ -1263,6 +1278,7 @@ function renderProjectModal(){
     '<div class="modal-foot"><button class="btn btn-ghost" id="projectCancelBtn">Cancelar</button><button class="btn btn-primary" id="projectSaveBtn">'+(p?'Salvar':'Criar projeto')+'</button></div>' +
   '</div>';
   document.body.appendChild(wrap);
+  autoGrowAll(wrap);
 }
 
 /* ======================= EVENT WIRING ======================= */

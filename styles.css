@@ -292,6 +292,7 @@ tr.row-overdue td:first-child{box-shadow:inset 3px 0 0 var(--status-critical);}
 .field-row{margin-bottom:13px;}
 .field-row label{display:block; font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px;}
 .field-row select, .field-row input, .field-row textarea{width:100%;}
+.field-row textarea{min-height:180px; max-height:460px; resize:vertical; overflow-y:auto; line-height:1.55;}
 .field-two{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 .desc-text{font-size:13px; line-height:1.6; color:var(--text-secondary); white-space:pre-line;}
 .approve-row{display:flex; gap:8px; margin:6px 0 16px;}
