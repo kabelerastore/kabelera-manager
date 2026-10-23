@@ -399,6 +399,7 @@ var NAV_MAIN = [
 ];
 var NAV_AFTER_AREAS = [
   {route:'#/minhas-tarefas', label:'Minhas Tarefas', icon:'tasks', match:'minhas-tarefas'},
+  {route:'#/concluidas', label:'Concluídas', icon:'check', match:'concluidas'},
   {route:'#/calendario', label:'Calendário', icon:'calendar', match:'calendario'},
   {route:'#/metricas', label:'Métricas de Redes Sociais', icon:'chart', match:'metricas'},
   {route:'#/mapas', label:'Mapas Mentais', icon:'mapa', match:'mapas'},
@@ -442,6 +443,7 @@ function pageTitleFor(r){
   if(r.name==='projetos') return ['Projetos', 'Iniciativas que cruzam várias áreas'];
   if(r.name==='projeto') return [project(r.params.id) ? project(r.params.id).name : 'Projeto', 'Todas as tarefas deste projeto, de qualquer área'];
   if(r.name==='minhas-tarefas') return ['Minhas Tarefas', 'Sua visão pessoal de prazos e prioridades'];
+  if(r.name==='concluidas') return ['Concluídas', 'Arquivo de tudo que já foi finalizado'];
   if(r.name==='calendario') return ['Calendário', 'Todos os prazos da empresa'];
   if(r.name==='equipe') return ['Equipe', 'Carga de trabalho por pessoa'];
   if(r.name==='configuracoes') return ['Configurações', 'Áreas, fluxos e usuários'];
@@ -495,6 +497,7 @@ function renderContent(){
   else if(r.name==='projetos') el.innerHTML = viewProjectsList();
   else if(r.name==='projeto') el.innerHTML = viewProjectDetail(r.params.id);
   else if(r.name==='minhas-tarefas') el.innerHTML = viewMyTasks();
+  else if(r.name==='concluidas') el.innerHTML = viewConcluidas();
   else if(r.name==='calendario') el.innerHTML = viewCalendarPage();
   else if(r.name==='equipe') el.innerHTML = viewTeam();
   else if(r.name==='configuracoes') el.innerHTML = viewSettings();
@@ -748,7 +751,8 @@ function projectCardHTML(p){
 /* ---- Area board ---- */
 function viewTodas(view){
   var f = getFilters('todas');
-  var tasks = TASKS.filter(function(t){ return matchesFilters(t, f); });
+  // tarefas finalizadas saem das visoes de trabalho; ficam na aba "Concluídas"
+  var tasks = TASKS.filter(function(t){ return matchesFilters(t, f) && !isFinal(t); });
   var tabs = ['lista','calendario'];
   var labels = {lista:'Lista', calendario:'Calendário'};
   var html = '<div class="view-tabs">' + tabs.map(function(v){
@@ -759,10 +763,32 @@ function viewTodas(view){
   else html += listTableHTML(tasks);
   return html;
 }
+/* ---- Concluídas (arquivo) ---- */
+function viewConcluidas(){
+  var done = TASKS.filter(isFinal).slice().sort(function(a,b){ return (b.completedAt||'').localeCompare(a.completedAt||''); });
+  if(!done.length) return '<div class="empty-state" style="padding:40px 0;">Nada concluído por aqui ainda. Quando você marcar uma tarefa como Concluído (ou Fechado/Pago), ela sai do quadro e vem parar aqui.</div>';
+  var groups = {};
+  done.forEach(function(t){ var an = area(t.areaId).name; (groups[an]=groups[an]||[]).push(t); });
+  var html = '<div class="concluidas-wrap">';
+  Object.keys(groups).forEach(function(an){
+    var list = groups[an];
+    html += '<h3 style="margin:18px 0 8px;">'+esc(an)+' <span class="count-pill">'+list.length+'</span></h3>';
+    html += '<div class="table-wrap"><table><thead><tr><th>Tarefa</th><th>Responsável</th><th>Concluída em</th><th></th></tr></thead><tbody>' +
+      list.map(function(t){
+        return '<tr><td data-open-task="'+t.id+'" style="cursor:pointer;">'+esc(t.title)+' <span class="tag">'+esc(t.status)+'</span></td>' +
+          '<td>'+esc(userLabel(t.responsibleId))+'</td>' +
+          '<td>'+fmtDate(t.completedAt)+'</td>' +
+          '<td style="text-align:right;"><button class="btn btn-ghost btn-sm" data-reopen-task="'+t.id+'">Reabrir</button></td></tr>';
+      }).join('') +
+      '</tbody></table></div>';
+  });
+  return html + '</div>';
+}
 function viewArea(areaId, view){
   var a = area(areaId);
   var f = getFilters('area:'+areaId);
-  var tasks = tasksForArea(areaId).filter(function(t){ return matchesFilters(t, f); });
+  // tarefas finalizadas saem do quadro da area; ficam na aba "Concluídas"
+  var tasks = tasksForArea(areaId).filter(function(t){ return matchesFilters(t, f) && !isFinal(t); });
   var tabs = ['kanban','lista','calendario','timeline','gantt'];
   var labels = {kanban:'Kanban', lista:'Lista', calendario:'Calendário', timeline:'Timeline', gantt:'Gantt'};
   var html = '<div class="view-tabs">' + tabs.map(function(v){
@@ -799,7 +825,8 @@ function matchesFilters(t, f){
   return true;
 }
 function kanbanHTML(a, tasks){
-  var cols = FLOWS[a.flow];
+  // nao mostra colunas de status final (concluidas saem pra aba "Concluídas"); "Adiado" fica
+  var cols = FLOWS[a.flow].filter(function(c){ return FINAL_STATUSES[a.flow].indexOf(c)===-1; });
   return '<div class="board-scroll" data-board="'+a.id+'">' + cols.map(function(col){
     var colTasks = tasks.filter(function(t){return t.status===col;});
     return '<div class="kcol"><div class="kcol-head"><span>'+col+'</span><span class="count-pill">'+colTasks.length+'</span></div>' +
@@ -1366,6 +1393,9 @@ document.addEventListener('click', function(e){
 
   var dismissBanner = e.target.closest('[data-dismiss-banner]');
   if(dismissBanner){ state.bannerDismissed=true; renderContent(); return; }
+
+  var reopenBtn = e.target.closest('[data-reopen-task]');
+  if(reopenBtn){ moveTask(reopenBtn.getAttribute('data-reopen-task'), 'Em Andamento'); renderContent(); showToast('Tarefa reaberta em "Em Andamento".'); return; }
 
   var openTask = e.target.closest('[data-open-task]');
   if(openTask && !e.target.closest('select')){ openDrawer(openTask.getAttribute('data-open-task')); return; }
