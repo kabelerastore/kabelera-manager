@@ -58,6 +58,21 @@
       isActive: r.is_active, createdAt: r.created_at, updatedAt: r.updated_at };
   }
   function mindmapToRow(m) { return { title: m.title, data: m.data || {} }; }
+  function afiliadoFromRow(r) {
+    return { id: r.id, categoria: r.categoria || 'Salão cachos', regiao: r.regiao || '', nome: r.nome,
+      instagram: r.instagram || '', bairro: r.bairro || '', seguidores: r.seguidores || 0,
+      contato: r.contato || '', status: r.status || 'A contatar', cupom: r.cupom || '',
+      pecas: r.pecas || 0, vendas: Number(r.vendas) || 0, decisao: r.decisao || '', obs: r.obs || '',
+      isActive: r.is_active, createdAt: r.created_at };
+  }
+  function afiliadoToRow(a) {
+    var row = {};
+    ['categoria','regiao','nome','instagram','bairro','contato','status','cupom','decisao','obs'].forEach(function (k) { if (a[k] !== undefined) row[k] = a[k]; });
+    if (a.seguidores !== undefined) row.seguidores = parseInt(a.seguidores, 10) || 0;
+    if (a.pecas !== undefined) row.pecas = parseInt(a.pecas, 10) || 0;
+    if (a.vendas !== undefined) row.vendas = Number(a.vendas) || 0;
+    return row;
+  }
 
   // ---- runtime (browser) ----
   var sb = null;
@@ -131,6 +146,15 @@
     return mindmapFromRow(must(await client().from('mindmaps').update(row).eq('id', id).select().single()));
   }
   async function setMindmapActive(id, active) { return must(await client().from('mindmaps').update({ is_active: active }).eq('id', id)); }
+  async function listAfiliados() {
+    return (must(await client().from('afiliados').select('*').eq('is_active', true).order('created_at'))).map(afiliadoFromRow);
+  }
+  async function insertAfiliado(a) { return afiliadoFromRow(must(await client().from('afiliados').insert(afiliadoToRow(a)).select().single())); }
+  async function updateAfiliado(id, patch) {
+    var row = afiliadoToRow(patch); row.updated_at = new Date().toISOString();
+    return afiliadoFromRow(must(await client().from('afiliados').update(row).eq('id', id).select().single()));
+  }
+  async function setAfiliadoActive(id, active) { return must(await client().from('afiliados').update({ is_active: active }).eq('id', id)); }
   async function insertNotifications(rows) { return must(await client().from('notifications').insert(rows)); }
   async function markNotifRead(id) { return must(await client().from('notifications').update({ read: true }).eq('id', id)); }
 
@@ -159,6 +183,8 @@
     mindmapFromRow: mindmapFromRow, mindmapToRow: mindmapToRow,
     listMindmaps: listMindmaps, getMindmap: getMindmap, insertMindmap: insertMindmap,
     updateMindmap: updateMindmap, setMindmapActive: setMindmapActive,
+    afiliadoFromRow: afiliadoFromRow, afiliadoToRow: afiliadoToRow,
+    listAfiliados: listAfiliados, insertAfiliado: insertAfiliado, updateAfiliado: updateAfiliado, setAfiliadoActive: setAfiliadoActive,
     signIn: signIn, signOut: signOut, getSession: getSession, refreshSession: refreshSession, onAuthChange: onAuthChange, resetPassword: resetPassword,
     loadAll: loadAll, insertTask: insertTask, updateTask: updateTask, setTaskActive: setTaskActive, uploadFile: uploadFile, insertProject: insertProject,
     updateProject: updateProject, setProjectActive: setProjectActive, insertNotifications: insertNotifications, markNotifRead: markNotifRead,

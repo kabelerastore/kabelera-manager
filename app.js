@@ -164,7 +164,8 @@ var state = {
   sidebarOpen:false,
   notifOpen:false,
   mindmaps:[], mapLoaded:false, currentMapId:null, map:null,
-  mapSelectedNodeId:null, mapSaveState:'salvo', mapMoveMode:false
+  mapSelectedNodeId:null, mapSaveState:'salvo', mapMoveMode:false,
+  afiliados:[], afiliadosLoaded:false
 };
 function getFilters(key){ return state.filters[key] || (state.filters[key]={responsavel:'',subcat:'',prioridade:'',prazo:''}); }
 
@@ -416,6 +417,7 @@ var NAV_AFTER_AREAS = [
   {route:'#/calendario', label:'Calendário', icon:'calendar', match:'calendario'},
   {route:'#/metricas', label:'Métricas de Redes Sociais', icon:'chart', match:'metricas'},
   {route:'#/mapas', label:'Mapas Mentais', icon:'mapa', match:'mapas'},
+  {route:'#/afiliados', label:'Afiliados', icon:'sales', match:'afiliados'},
   {route:'#/equipe', label:'Equipe', icon:'team', match:'equipe'},
   {route:'#/configuracoes', label:'Configurações', icon:'settings', match:'configuracoes'}
 ];
@@ -462,6 +464,7 @@ function pageTitleFor(r){
   if(r.name==='configuracoes') return ['Configurações', 'Áreas, fluxos e usuários'];
   if(r.name==='metricas') return ['Métricas de Redes Sociais', 'Redes sociais da Kabelera'];
   if(r.name==='mapas') return ['Mapas Mentais', 'Seus mapas de campanha'];
+  if(r.name==='afiliados') return ['Afiliados', 'Salões parceiros: prospecção, cupom e comissão'];
   return ['Kabelera Manager', ''];
 }
 function renderTopbar(){
@@ -516,6 +519,7 @@ function renderContent(){
   else if(r.name==='configuracoes') el.innerHTML = viewSettings();
   else if(r.name==='metricas') el.innerHTML = viewMetrics();
   else if(r.name==='mapas') el.innerHTML = viewMindmaps();
+  else if(r.name==='afiliados') el.innerHTML = viewAfiliados();
   else el.innerHTML = '<div class="empty-state">Página não encontrada.</div>';
   wireDynamicCharts();
   if(r.name==='mapas' && state.currentMapId) renderMapStage();
@@ -526,6 +530,88 @@ function viewMetrics(){
   return '<div class="metrics-wrap">' +
     '<iframe id="metricsFrame" class="metrics-frame" src="relatorios/redes-sociais.html?v=1" title="Relatório de redes sociais da Kabelera"></iframe>' +
     '</div>';
+}
+
+/* ======================= AFILIADOS ======================= */
+var AFIL_CAT_COLOR = {'Salão cachos':'#fffa2a','Trancista afro':'#c79bff','Influencer + salão':'#7fc9ff','Salão/afro':'#ffd27f'};
+var AFIL_CAT_ORDER = ['Influencer + salão','Salão cachos','Trancista afro','Salão/afro'];
+var AFIL_STATUS = ['A contatar','Contatado','Em conversa','Ativo','Recusou','Pausado'];
+var AFIL_DECISAO = ['','Manter','Talvez','Cortar'];
+function afilMoney(n){ return 'R$ ' + (Math.round(n||0)).toLocaleString('pt-BR'); }
+function afilLink(ig){ return ig ? 'https://instagram.com/'+encodeURIComponent(String(ig).replace('@','')) : ''; }
+
+function viewAfiliados(){
+  if(!state.afiliadosLoaded){
+    KMDB.listAfiliados().then(function(list){ state.afiliados=list; state.afiliadosLoaded=true; if(state.route.name==='afiliados') renderContent(); })
+      .catch(function(){ showToast('Não foi possível carregar os afiliados.'); });
+    return '<div class="empty-state" style="padding:40px 0;">Carregando afiliados...</div>';
+  }
+  var list = state.afiliados.slice().sort(function(a,b){
+    var ca=AFIL_CAT_ORDER.indexOf(a.categoria), cb=AFIL_CAT_ORDER.indexOf(b.categoria);
+    if(ca!==cb) return (ca<0?99:ca)-(cb<0?99:cb);
+    return String(a.nome).localeCompare(String(b.nome));
+  });
+  var ativos=0, vendas=0, comissao=0, pecas=0;
+  list.forEach(function(a){ if(a.status==='Ativo')ativos++; vendas+=(a.vendas||0); comissao+=(a.vendas||0)*0.15; pecas+=(a.pecas||0); });
+
+  var kpis = '<div class="afil-kpis">'+
+    '<div class="afil-kpi"><span>Ativos</span><b>'+ativos+'</b><small>de '+list.length+' no pipeline</small></div>'+
+    '<div class="afil-kpi"><span>Vendas no mês</span><b>'+afilMoney(vendas)+'</b><small>rastreado por cupom</small></div>'+
+    '<div class="afil-kpi"><span>Comissão a pagar</span><b>'+afilMoney(comissao)+'</b><small>15% das vendas</small></div>'+
+    '<div class="afil-kpi"><span>Peças em expositores</span><b>'+pecas+'</b><small>consignadas</small></div>'+
+  '</div>';
+
+  var addForm = '<div class="afil-add">'+
+    '<input id="afNome" placeholder="Nome do salão">'+
+    '<input id="afIg" placeholder="@instagram">'+
+    '<select id="afCat">'+AFIL_CAT_ORDER.map(function(c){return '<option>'+c+'</option>';}).join('')+'</select>'+
+    '<input id="afReg" placeholder="Região">'+
+    '<input id="afBairro" placeholder="Bairro">'+
+    '<button class="btn btn-primary" id="afAddBtn">'+icon('plus',16)+'<span>Incluir</span></button>'+
+  '</div>';
+
+  var rows='', curCat='';
+  list.forEach(function(a){
+    if(a.categoria!==curCat){ curCat=a.categoria;
+      rows += '<tr class="afil-cathead"><td colspan="9" style="border-left:5px solid '+(AFIL_CAT_COLOR[curCat]||'#888')+';">'+esc(curCat)+'</td></tr>';
+    }
+    var cor = AFIL_CAT_COLOR[a.categoria]||'#888';
+    var lk = afilLink(a.instagram);
+    var igHtml = lk ? '<a href="'+lk+'" target="_blank" rel="noopener" class="afil-ig">'+esc(a.instagram)+'</a>' : '<span class="afil-ig">'+esc(a.instagram)+'</span>';
+    rows += '<tr>'+
+      '<td style="border-left:4px solid '+cor+';"><b>'+esc(a.nome)+'</b><br>'+igHtml+'</td>'+
+      '<td>'+esc(a.regiao)+(a.bairro?'<br><small>'+esc(a.bairro)+'</small>':'')+'</td>'+
+      '<td><input class="afil-in" data-afil-id="'+a.id+'" data-afil-field="contato" value="'+esc(a.contato)+'" placeholder="WhatsApp/contato"></td>'+
+      '<td><select class="afil-sel" data-afil-id="'+a.id+'" data-afil-field="status">'+AFIL_STATUS.map(function(s){return '<option'+(s===a.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></td>'+
+      '<td><input class="afil-in afil-cupom" data-afil-id="'+a.id+'" data-afil-field="cupom" value="'+esc(a.cupom)+'" placeholder="CUPOM"></td>'+
+      '<td><input class="afil-num" type="number" min="0" data-afil-id="'+a.id+'" data-afil-field="pecas" value="'+(a.pecas||0)+'"></td>'+
+      '<td><input class="afil-num" type="number" min="0" step="1" data-afil-id="'+a.id+'" data-afil-field="vendas" value="'+(a.vendas||0)+'"></td>'+
+      '<td class="afil-com">'+afilMoney((a.vendas||0)*0.15)+'</td>'+
+      '<td><select class="afil-sel" data-afil-id="'+a.id+'" data-afil-field="decisao">'+AFIL_DECISAO.map(function(d){return '<option value="'+d+'"'+(d===(a.decisao||'')?' selected':'')+'>'+(d||'—')+'</option>';}).join('')+'</select> <span class="trash" data-del-afil="'+a.id+'">excluir</span></td>'+
+    '</tr>';
+  });
+
+  return '<div class="afil-wrap">'+
+    kpis + addForm +
+    '<div class="afil-tablewrap"><table class="afil-table"><thead><tr>'+
+      '<th>Salão</th><th>Região / bairro</th><th>Contato</th><th>Status</th><th>Cupom</th><th>Peças</th><th>Vendas mês</th><th>Comissão</th><th>Decisão</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<p class="afil-foot">Cliente ganha 10% no cupom · salão recebe 15% de comissão sobre as vendas rastreadas. A comissão calcula sozinha.</p>'+
+  '</div>';
+}
+
+function addAfiliadoFlow(){
+  var nome=(document.getElementById('afNome').value||'').trim();
+  if(!nome){ showToast('Dê um nome ao afiliado.'); return; }
+  var novo={ categoria:document.getElementById('afCat').value, regiao:(document.getElementById('afReg').value||'').trim(),
+    nome:nome, instagram:(document.getElementById('afIg').value||'').trim(), bairro:(document.getElementById('afBairro').value||'').trim(),
+    seguidores:0, contato:'', status:'A contatar', cupom:'', pecas:0, vendas:0, decisao:'', obs:'' };
+  KMDB.insertAfiliado(novo).then(function(row){ state.afiliados.push(row); renderContent(); showToast('Afiliado incluído.'); })
+    .catch(function(){ showToast('Não foi possível incluir.'); });
+}
+function removeAfiliado(id){
+  KMDB.setAfiliadoActive(id,false).then(function(){ state.afiliados=state.afiliados.filter(function(x){return x.id!==id;}); renderContent(); showToast('Afiliado removido.'); })
+    .catch(function(){ showToast('Não foi possível remover.'); });
 }
 
 /* ======================= MAPAS MENTAIS ======================= */
@@ -1335,6 +1421,11 @@ document.addEventListener('click', function(e){
     return;
   }
 
+  // ---- Afiliados ----
+  if(e.target.closest('#afAddBtn')){ addAfiliadoFlow(); return; }
+  var delAfil=e.target.closest('[data-del-afil]');
+  if(delAfil){ removeAfiliado(delAfil.getAttribute('data-del-afil')); return; }
+
   // ---- Mapas Mentais ----
   if(e.target.closest('#newMapBtn')){ createMapFlow(); return; }
   var delMap=e.target.closest('[data-del-map]');
@@ -1463,6 +1554,19 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('change', function(e){
+  var afilEl = e.target.closest('[data-afil-id]');
+  if(afilEl){
+    var aid=afilEl.getAttribute('data-afil-id'), fld=afilEl.getAttribute('data-afil-field');
+    var val=afilEl.value;
+    if(fld==='pecas') val=parseInt(val,10)||0;
+    if(fld==='vendas') val=parseFloat(String(val).replace(',','.'))||0;
+    var a=state.afiliados.find(function(x){return x.id===aid;});
+    if(a){ a[fld]=val; }
+    var patch={}; patch[fld]=val;
+    KMDB.updateAfiliado(aid, patch).catch(function(){ showToast('Não salvou a alteração.'); });
+    renderContent();
+    return;
+  }
   if(e.target.id==='mmColor' && state.map && state.mapSelectedNodeId){
     var c=e.target.value; mapMutate(function(r){ KM.mmUpdate(r,state.mapSelectedNodeId,{color:c}); });
     return;
