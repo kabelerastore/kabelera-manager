@@ -537,8 +537,29 @@ var AFIL_CAT_COLOR = {'Salão cachos':'#fffa2a','Trancista afro':'#c79bff','Infl
 var AFIL_CAT_ORDER = ['Influencer + salão','Salão cachos','Trancista afro','Salão/afro'];
 var AFIL_STATUS = ['A contatar','Contatado','Em conversa','Ativo','Recusou','Pausado'];
 var AFIL_DECISAO = ['','Manter','Talvez','Cortar'];
+var AFIL_MES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 function afilMoney(n){ return 'R$ ' + (Math.round(n||0)).toLocaleString('pt-BR'); }
 function afilLink(ig){ return ig ? 'https://instagram.com/'+encodeURIComponent(String(ig).replace('@','')) : ''; }
+function afilMonthKey(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+function afilMonthLabel(key){ var p=String(key).split('-'); return (AFIL_MES_ABREV[parseInt(p[1],10)-1]||'?')+'/'+p[0]; }
+function afilMonthsList(n){ var out=[], d=new Date(); d.setDate(1); for(var i=0;i<n;i++){ out.push(afilMonthKey(d)); d.setMonth(d.getMonth()-1); } return out; }
+function afilVendasOf(a, mk){ return (a.vendasMensais && a.vendasMensais[mk]) || 0; }
+function afilCurrentMonth(){ if(!state.afilMonth) state.afilMonth = afilMonthKey(new Date()); return state.afilMonth; }
+
+function afilChartHTML(){
+  var months = afilMonthsList(6).reverse();
+  var totals = months.map(function(mk){ var s=0; state.afiliados.forEach(function(a){ s+=afilVendasOf(a,mk); }); return s; });
+  var max = Math.max.apply(null, totals.concat([1]));
+  var bars = months.map(function(mk,i){
+    var h = Math.max(Math.round((totals[i]/max)*100), 2);
+    var sel = mk===afilCurrentMonth();
+    return '<button class="afil-bar'+(sel?' sel':'')+'" data-afil-month="'+mk+'" title="'+afilMonthLabel(mk)+': '+afilMoney(totals[i])+'">'+
+      '<span class="afil-bar-val">'+(totals[i]?afilMoney(totals[i]):'')+'</span>'+
+      '<span class="afil-bar-fill" style="height:'+h+'%"></span>'+
+      '<span class="afil-bar-lbl">'+afilMonthLabel(mk)+'</span></button>';
+  }).join('');
+  return '<div class="afil-chart"><div class="afil-chart-title">Vendas por mês (rastreadas por cupom) — clique num mês para analisar</div><div class="afil-bars">'+bars+'</div></div>';
+}
 
 function viewAfiliados(){
   if(!state.afiliadosLoaded){
@@ -546,17 +567,25 @@ function viewAfiliados(){
       .catch(function(){ showToast('Não foi possível carregar os afiliados.'); });
     return '<div class="empty-state" style="padding:40px 0;">Carregando afiliados...</div>';
   }
+  var mes = afilCurrentMonth();
   var list = state.afiliados.slice().sort(function(a,b){
     var ca=AFIL_CAT_ORDER.indexOf(a.categoria), cb=AFIL_CAT_ORDER.indexOf(b.categoria);
     if(ca!==cb) return (ca<0?99:ca)-(cb<0?99:cb);
     return String(a.nome).localeCompare(String(b.nome));
   });
-  var ativos=0, vendas=0, comissao=0, pecas=0;
-  list.forEach(function(a){ if(a.status==='Ativo')ativos++; vendas+=(a.vendas||0); comissao+=(a.vendas||0)*0.15; pecas+=(a.pecas||0); });
+  var ativos=0, vendas=0, pecas=0;
+  list.forEach(function(a){ if(a.status==='Ativo')ativos++; vendas+=afilVendasOf(a,mes); pecas+=(a.pecas||0); });
+  var comissao = vendas*0.15;
+
+  var banner = '<div class="afil-rules"><b>Regra do programa:</b> cliente ganha <b>10%</b> de desconto no cupom · salão recebe <b>15%</b> de comissão sobre as vendas rastreadas, pago todo mês.</div>';
+
+  var monthOpts = afilMonthsList(12).map(function(mk){ return '<option value="'+mk+'"'+(mk===mes?' selected':'')+'>'+afilMonthLabel(mk)+'</option>'; }).join('');
+  var toolbar = '<div class="afil-toolbar"><label class="afil-monthsel">Mês / período: <select id="afMonthSel">'+monthOpts+'</select></label>'+
+    '<button class="btn btn-ghost btn-sm" id="afZeroBtn">Zerar vendas de '+afilMonthLabel(mes)+'</button></div>';
 
   var kpis = '<div class="afil-kpis">'+
     '<div class="afil-kpi"><span>Ativos</span><b>'+ativos+'</b><small>de '+list.length+' no pipeline</small></div>'+
-    '<div class="afil-kpi"><span>Vendas no mês</span><b>'+afilMoney(vendas)+'</b><small>rastreado por cupom</small></div>'+
+    '<div class="afil-kpi"><span>Vendas em '+afilMonthLabel(mes)+'</span><b>'+afilMoney(vendas)+'</b><small>rastreado por cupom</small></div>'+
     '<div class="afil-kpi"><span>Comissão a pagar</span><b>'+afilMoney(comissao)+'</b><small>15% das vendas</small></div>'+
     '<div class="afil-kpi"><span>Peças em expositores</span><b>'+pecas+'</b><small>consignadas</small></div>'+
   '</div>';
@@ -573,30 +602,34 @@ function viewAfiliados(){
   var rows='', curCat='';
   list.forEach(function(a){
     if(a.categoria!==curCat){ curCat=a.categoria;
-      rows += '<tr class="afil-cathead"><td colspan="9" style="border-left:5px solid '+(AFIL_CAT_COLOR[curCat]||'#888')+';">'+esc(curCat)+'</td></tr>';
+      rows += '<tr class="afil-cathead"><td colspan="12" style="border-left:5px solid '+(AFIL_CAT_COLOR[curCat]||'#888')+';">'+esc(curCat)+'</td></tr>';
     }
     var cor = AFIL_CAT_COLOR[a.categoria]||'#888';
     var lk = afilLink(a.instagram);
     var igHtml = lk ? '<a href="'+lk+'" target="_blank" rel="noopener" class="afil-ig">'+esc(a.instagram)+'</a>' : '<span class="afil-ig">'+esc(a.instagram)+'</span>';
+    var vmes = afilVendasOf(a,mes);
     rows += '<tr>'+
       '<td style="border-left:4px solid '+cor+';"><b>'+esc(a.nome)+'</b><br>'+igHtml+'</td>'+
       '<td>'+esc(a.regiao)+(a.bairro?'<br><small>'+esc(a.bairro)+'</small>':'')+'</td>'+
+      '<td class="afil-seg">'+(a.seguidores?Number(a.seguidores).toLocaleString('pt-BR'):'—')+'</td>'+
       '<td><input class="afil-in" data-afil-id="'+a.id+'" data-afil-field="contato" value="'+esc(a.contato)+'" placeholder="WhatsApp/contato"></td>'+
+      '<td><input class="afil-date" type="date" data-afil-id="'+a.id+'" data-afil-field="dataContato" value="'+esc(a.dataContato||'')+'"></td>'+
       '<td><select class="afil-sel" data-afil-id="'+a.id+'" data-afil-field="status">'+AFIL_STATUS.map(function(s){return '<option'+(s===a.status?' selected':'')+'>'+s+'</option>';}).join('')+'</select></td>'+
       '<td><input class="afil-in afil-cupom" data-afil-id="'+a.id+'" data-afil-field="cupom" value="'+esc(a.cupom)+'" placeholder="CUPOM"></td>'+
       '<td><input class="afil-num" type="number" min="0" data-afil-id="'+a.id+'" data-afil-field="pecas" value="'+(a.pecas||0)+'"></td>'+
-      '<td><input class="afil-num" type="number" min="0" step="1" data-afil-id="'+a.id+'" data-afil-field="vendas" value="'+(a.vendas||0)+'"></td>'+
-      '<td class="afil-com">'+afilMoney((a.vendas||0)*0.15)+'</td>'+
-      '<td><select class="afil-sel" data-afil-id="'+a.id+'" data-afil-field="decisao">'+AFIL_DECISAO.map(function(d){return '<option value="'+d+'"'+(d===(a.decisao||'')?' selected':'')+'>'+(d||'—')+'</option>';}).join('')+'</select> <span class="trash" data-del-afil="'+a.id+'">excluir</span></td>'+
+      '<td><input class="afil-num" type="number" min="0" step="1" data-afil-id="'+a.id+'" data-afil-field="vendas" value="'+vmes+'"></td>'+
+      '<td class="afil-com">'+afilMoney(vmes*0.15)+'</td>'+
+      '<td><select class="afil-sel" data-afil-id="'+a.id+'" data-afil-field="decisao">'+AFIL_DECISAO.map(function(d){return '<option value="'+d+'"'+(d===(a.decisao||'')?' selected':'')+'>'+(d||'—')+'</option>';}).join('')+'</select></td>'+
+      '<td><input class="afil-in" data-afil-id="'+a.id+'" data-afil-field="obs" value="'+esc(a.obs)+'" placeholder="obs"> <span class="trash" data-del-afil="'+a.id+'">excluir</span></td>'+
     '</tr>';
   });
 
   return '<div class="afil-wrap">'+
-    kpis + addForm +
+    banner + toolbar + kpis + afilChartHTML() + addForm +
     '<div class="afil-tablewrap"><table class="afil-table"><thead><tr>'+
-      '<th>Salão</th><th>Região / bairro</th><th>Contato</th><th>Status</th><th>Cupom</th><th>Peças</th><th>Vendas mês</th><th>Comissão</th><th>Decisão</th>'+
+      '<th>Salão</th><th>Região / bairro</th><th>Seguidores</th><th>Contato</th><th>Data contato</th><th>Status</th><th>Cupom</th><th>Peças</th><th>Vendas '+afilMonthLabel(mes)+'</th><th>Comissão</th><th>Decisão</th><th>Obs.</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<p class="afil-foot">Cliente ganha 10% no cupom · salão recebe 15% de comissão sobre as vendas rastreadas. A comissão calcula sozinha.</p>'+
+    '<p class="afil-foot">Vendas e comissão são por mês (troque o mês lá em cima). Use "Zerar vendas" no começo de cada mês.</p>'+
   '</div>';
 }
 
@@ -605,13 +638,21 @@ function addAfiliadoFlow(){
   if(!nome){ showToast('Dê um nome ao afiliado.'); return; }
   var novo={ categoria:document.getElementById('afCat').value, regiao:(document.getElementById('afReg').value||'').trim(),
     nome:nome, instagram:(document.getElementById('afIg').value||'').trim(), bairro:(document.getElementById('afBairro').value||'').trim(),
-    seguidores:0, contato:'', status:'A contatar', cupom:'', pecas:0, vendas:0, decisao:'', obs:'' };
+    seguidores:0, contato:'', status:'A contatar', cupom:'', pecas:0, vendasMensais:{}, decisao:'', obs:'', dataContato:null };
   KMDB.insertAfiliado(novo).then(function(row){ state.afiliados.push(row); renderContent(); showToast('Afiliado incluído.'); })
     .catch(function(){ showToast('Não foi possível incluir.'); });
 }
 function removeAfiliado(id){
   KMDB.setAfiliadoActive(id,false).then(function(){ state.afiliados=state.afiliados.filter(function(x){return x.id!==id;}); renderContent(); showToast('Afiliado removido.'); })
     .catch(function(){ showToast('Não foi possível remover.'); });
+}
+function zeroAfilMonth(){
+  var mes=afilCurrentMonth();
+  if(!window.confirm('Zerar as vendas de '+afilMonthLabel(mes)+' de todos os afiliados? (status, cupom e peças continuam)')) return;
+  var ups=[];
+  state.afiliados.forEach(function(a){ a.vendasMensais=a.vendasMensais||{}; if(a.vendasMensais[mes]){ a.vendasMensais[mes]=0; ups.push(KMDB.updateAfiliado(a.id,{vendasMensais:a.vendasMensais})); } });
+  renderContent();
+  Promise.all(ups).then(function(){ showToast('Vendas de '+afilMonthLabel(mes)+' zeradas.'); }).catch(function(){ showToast('Falha ao zerar algumas linhas.'); });
 }
 
 /* ======================= MAPAS MENTAIS ======================= */
@@ -1423,6 +1464,9 @@ document.addEventListener('click', function(e){
 
   // ---- Afiliados ----
   if(e.target.closest('#afAddBtn')){ addAfiliadoFlow(); return; }
+  if(e.target.closest('#afZeroBtn')){ zeroAfilMonth(); return; }
+  var barMonth=e.target.closest('[data-afil-month]');
+  if(barMonth){ state.afilMonth=barMonth.getAttribute('data-afil-month'); renderContent(); return; }
   var delAfil=e.target.closest('[data-del-afil]');
   if(delAfil){ removeAfiliado(delAfil.getAttribute('data-del-afil')); return; }
 
@@ -1554,15 +1598,20 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('change', function(e){
+  if(e.target.id==='afMonthSel'){ state.afilMonth=e.target.value; renderContent(); return; }
   var afilEl = e.target.closest('[data-afil-id]');
   if(afilEl){
     var aid=afilEl.getAttribute('data-afil-id'), fld=afilEl.getAttribute('data-afil-field');
-    var val=afilEl.value;
-    if(fld==='pecas') val=parseInt(val,10)||0;
-    if(fld==='vendas') val=parseFloat(String(val).replace(',','.'))||0;
     var a=state.afiliados.find(function(x){return x.id===aid;});
-    if(a){ a[fld]=val; }
-    var patch={}; patch[fld]=val;
+    if(!a) return;
+    var val=afilEl.value, patch={};
+    if(fld==='vendas'){
+      var v=parseFloat(String(val).replace(',','.'))||0;
+      a.vendasMensais=a.vendasMensais||{}; a.vendasMensais[afilCurrentMonth()]=v;
+      patch.vendasMensais=a.vendasMensais;
+    } else if(fld==='pecas'){ a.pecas=parseInt(val,10)||0; patch.pecas=a.pecas; }
+    else if(fld==='dataContato'){ a.dataContato=val||null; patch.dataContato=a.dataContato; }
+    else { a[fld]=val; patch[fld]=val; }
     KMDB.updateAfiliado(aid, patch).catch(function(){ showToast('Não salvou a alteração.'); });
     renderContent();
     return;
