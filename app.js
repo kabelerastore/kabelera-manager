@@ -605,8 +605,7 @@ function viewAfiliados(){
     '<button class="afil-mode'+(periodoMode?' on':'')+'" data-afil-mode="periodo">Período</button></div>';
   var controls = periodoMode
     ? '<label class="afil-monthsel">De <select id="afFromSel">'+afilMonthOpts(state.afilFrom)+'</select> até <select id="afToSel">'+afilMonthOpts(state.afilTo)+'</select></label>'
-    : '<label class="afil-monthsel">Mês <select id="afMonthSel">'+afilMonthOpts(mes)+'</select></label>'+
-      '<button class="btn btn-ghost btn-sm" id="afZeroBtn">Zerar vendas de '+afilMonthLabel(mes)+'</button>';
+    : '<label class="afil-monthsel">Mês <select id="afMonthSel">'+afilMonthOpts(mes)+'</select></label>';
   var toolbar = '<div class="afil-toolbar">'+modeToggle+controls+'</div>';
 
   var kpis = '<div class="afil-kpis">'+
@@ -674,14 +673,6 @@ function addAfiliadoFlow(){
 function removeAfiliado(id){
   KMDB.setAfiliadoActive(id,false).then(function(){ state.afiliados=state.afiliados.filter(function(x){return x.id!==id;}); renderContent(); showToast('Afiliado removido.'); })
     .catch(function(){ showToast('Não foi possível remover.'); });
-}
-function zeroAfilMonth(){
-  var mes=afilCurrentMonth();
-  if(!window.confirm('Zerar as vendas de '+afilMonthLabel(mes)+' de todos os afiliados? (status, cupom e peças continuam)')) return;
-  var ups=[];
-  state.afiliados.forEach(function(a){ a.vendasMensais=a.vendasMensais||{}; if(a.vendasMensais[mes]){ a.vendasMensais[mes]=0; ups.push(KMDB.updateAfiliado(a.id,{vendasMensais:a.vendasMensais})); } });
-  renderContent();
-  Promise.all(ups).then(function(){ showToast('Vendas de '+afilMonthLabel(mes)+' zeradas.'); }).catch(function(){ showToast('Falha ao zerar algumas linhas.'); });
 }
 
 /* ======================= MAPAS MENTAIS ======================= */
@@ -1493,7 +1484,6 @@ document.addEventListener('click', function(e){
 
   // ---- Afiliados ----
   if(e.target.closest('#afAddBtn')){ addAfiliadoFlow(); return; }
-  if(e.target.closest('#afZeroBtn')){ zeroAfilMonth(); return; }
   var afMode=e.target.closest('[data-afil-mode]');
   if(afMode){ state.afilMode=afMode.getAttribute('data-afil-mode'); renderContent(); return; }
   var barMonth=e.target.closest('[data-afil-month]');
